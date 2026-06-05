@@ -67,15 +67,33 @@ resource "aws_lb_target_group" "order" {
 resource "aws_lb_listener_rule" "products" {
   listener_arn = aws_lb_listener.http.arn
   priority     = 10
-  action { type = "forward"; target_group_arn = aws_lb_target_group.product.arn }
-  condition { path_pattern { values = ["/products*", "/cart*"] } }
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.product.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/products*", "/cart*"]
+    }
+  }
 }
 
 resource "aws_lb_listener_rule" "orders" {
   listener_arn = aws_lb_listener.http.arn
   priority     = 20
-  action { type = "forward"; target_group_arn = aws_lb_target_group.order.arn }
-  condition { path_pattern { values = ["/orders*", "/payments*"] } }
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.order.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/orders*", "/payments*"]
+    }
+  }
 }
 
 output "alb_dns" { value = aws_lb.main.dns_name }
