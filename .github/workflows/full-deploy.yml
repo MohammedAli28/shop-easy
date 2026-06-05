@@ -63,7 +63,7 @@ jobs:
         run: |
           for svc in product-service order-service frontend db-init; do
             echo "🔨 Building $svc..."
-            docker build --platform linux/amd64 --provenance=false \
+            docker build --platform linux/amd64 --provenance=false --no-cache \
               -t $REGISTRY/$PROJECT/$svc:latest ./$svc
             docker push $REGISTRY/$PROJECT/$svc:latest
           done
