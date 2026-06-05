@@ -95,9 +95,10 @@ shop-easy/
 ├── frontend/           # React SPA + Nginx
 ├── product-service/    # Products + Cart API
 ├── order-service/      # Orders + Payments API
+├── db-init/            # DB migration container (runs once)
 ├── database/           # SQL schema + seed data
 ├── terraform/          # AWS infra (VPC, ECS, RDS, ALB)
-├── .github/workflows/  # CI/CD pipelines
+├── .github/workflows/  # 1-click CI/CD pipeline
 ├── docs/               # Architecture diagrams
 ├── docker-compose.yml  # Local development
 └── DEPLOYMENT.md       # Manual deployment guide
