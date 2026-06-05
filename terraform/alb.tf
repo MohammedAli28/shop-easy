@@ -9,13 +9,6 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -42,44 +35,47 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+# Target Groups
 resource "aws_lb_target_group" "frontend" {
   name        = "${var.project}-frontend-tg"
   port        = 80
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
-  health_check {
-    path = "/"
-  }
+  health_check { path = "/" }
 }
 
-resource "aws_lb_target_group" "services" {
-  for_each    = local.services
-  name        = "${var.project}-${each.key}-tg"
-  port        = each.value.port
+resource "aws_lb_target_group" "product" {
+  name        = "${var.project}-product-tg"
+  port        = 4001
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
-  health_check {
-    path = "/health"
-  }
+  health_check { path = "/health" }
 }
 
-resource "aws_lb_listener_rule" "api_routes" {
-  for_each     = local.services
+resource "aws_lb_target_group" "order" {
+  name        = "${var.project}-order-tg"
+  port        = 4002
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check { path = "/health" }
+}
+
+# Routing rules
+resource "aws_lb_listener_rule" "products" {
   listener_arn = aws_lb_listener.http.arn
-  priority     = each.key == "product" ? 10 : each.key == "cart" ? 20 : each.key == "order" ? 30 : 40
+  priority     = 10
+  action { type = "forward"; target_group_arn = aws_lb_target_group.product.arn }
+  condition { path_pattern { values = ["/products*", "/cart*"] } }
+}
 
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.services[each.key].arn
-  }
-
-  condition {
-    path_pattern {
-      values = [each.key == "product" ? "/products*" : each.key == "cart" ? "/cart*" : each.key == "order" ? "/orders*" : "/payments*"]
-    }
-  }
+resource "aws_lb_listener_rule" "orders" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 20
+  action { type = "forward"; target_group_arn = aws_lb_target_group.order.arn }
+  condition { path_pattern { values = ["/orders*", "/payments*"] } }
 }
 
 output "alb_dns" { value = aws_lb.main.dns_name }

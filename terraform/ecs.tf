@@ -23,32 +23,22 @@ resource "aws_security_group" "ecs" {
 
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/${var.project}"
-  retention_in_days = 7
+  retention_in_days = 3
 }
 
-locals {
-  services = {
-    product = { port = 4001 }
-    cart    = { port = 4002 }
-    order   = { port = 4003 }
-    payment = { port = 4004 }
-  }
-}
-
-resource "aws_ecs_task_definition" "services" {
-  for_each                 = local.services
-  family                   = "${var.project}-${each.key}"
+# ─── Product Service (products + cart) ───
+resource "aws_ecs_task_definition" "product" {
+  family                   = "${var.project}-product"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_execution.arn
-  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
-    name  = "${each.key}-service"
-    image = "${aws_ecr_repository.services[each.key].repository_url}:latest"
-    portMappings = [{ containerPort = each.value.port }]
+    name  = "product-service"
+    image = "${aws_ecr_repository.product.repository_url}:latest"
+    portMappings = [{ containerPort = 4001 }]
     environment = [
       { name = "DB_HOST", value = aws_db_instance.main.address },
       { name = "DB_USER", value = "admin" },
@@ -60,32 +50,83 @@ resource "aws_ecs_task_definition" "services" {
       options = {
         "awslogs-group"         = "/ecs/${var.project}"
         "awslogs-region"        = var.region
-        "awslogs-stream-prefix" = each.key
+        "awslogs-stream-prefix" = "product"
       }
     }
   }])
 }
 
-resource "aws_ecs_service" "services" {
-  for_each        = local.services
-  name            = "${each.key}-service"
+resource "aws_ecs_service" "product" {
+  name            = "product-service"
   cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.services[each.key].arn
+  task_definition = aws_ecs_task_definition.product.arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = aws_subnet.private[*].id
-    security_groups = [aws_security_group.ecs.id]
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = true
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.services[each.key].arn
-    container_name   = "${each.key}-service"
-    container_port   = each.value.port
+    target_group_arn = aws_lb_target_group.product.arn
+    container_name   = "product-service"
+    container_port   = 4001
   }
 }
 
+# ─── Order Service (orders + payments) ───
+resource "aws_ecs_task_definition" "order" {
+  family                   = "${var.project}-order"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+
+  container_definitions = jsonencode([{
+    name  = "order-service"
+    image = "${aws_ecr_repository.order.repository_url}:latest"
+    portMappings = [{ containerPort = 4002 }]
+    environment = [
+      { name = "DB_HOST", value = aws_db_instance.main.address },
+      { name = "DB_USER", value = "admin" },
+      { name = "DB_PASSWORD", value = var.db_password },
+      { name = "DB_NAME", value = "shop_easy" }
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/${var.project}"
+        "awslogs-region"        = var.region
+        "awslogs-stream-prefix" = "order"
+      }
+    }
+  }])
+}
+
+resource "aws_ecs_service" "order" {
+  name            = "order-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.order.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.order.arn
+    container_name   = "order-service"
+    container_port   = 4002
+  }
+}
+
+# ─── Frontend ───
 resource "aws_ecs_task_definition" "frontend" {
   family                   = "${var.project}-frontend"
   network_mode             = "awsvpc"
@@ -117,8 +158,9 @@ resource "aws_ecs_service" "frontend" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = aws_subnet.private[*].id
-    security_groups = [aws_security_group.ecs.id]
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = true
   }
 
   load_balancer {
@@ -128,11 +170,52 @@ resource "aws_ecs_service" "frontend" {
   }
 }
 
-resource "aws_ecr_repository" "services" {
-  for_each = local.services
-  name     = "${var.project}/${each.key}-service"
+# ─── ECR Repositories ───
+resource "aws_ecr_repository" "product" {
+  name         = "${var.project}/product-service"
+  force_delete = true
+}
+
+resource "aws_ecr_repository" "order" {
+  name         = "${var.project}/order-service"
+  force_delete = true
 }
 
 resource "aws_ecr_repository" "frontend" {
-  name = "${var.project}/frontend"
+  name         = "${var.project}/frontend"
+  force_delete = true
+}
+
+resource "aws_ecr_repository" "db_init" {
+  name         = "${var.project}/db-init"
+  force_delete = true
+}
+
+# ─── DB Init Task (runs once to load schema) ───
+resource "aws_ecs_task_definition" "db_init" {
+  family                   = "${var.project}-db-init"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+
+  container_definitions = jsonencode([{
+    name  = "db-init"
+    image = "${aws_ecr_repository.db_init.repository_url}:latest"
+    environment = [
+      { name = "DB_HOST", value = aws_db_instance.main.address },
+      { name = "DB_USER", value = "admin" },
+      { name = "DB_PASSWORD", value = var.db_password },
+      { name = "DB_NAME", value = "shop_easy" }
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/${var.project}"
+        "awslogs-region"        = var.region
+        "awslogs-stream-prefix" = "db-init"
+      }
+    }
+  }])
 }

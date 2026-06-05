@@ -1,10 +1,10 @@
-name: 🚀 Full Deploy (Infra + Services)
+name: 🚀 Deploy Shop Easy
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Action to perform'
+        description: 'deploy or destroy'
         required: true
         default: 'deploy'
         type: choice
@@ -14,19 +14,94 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECS_CLUSTER: shop-easy-cluster
   PROJECT: shop-easy
+  TF_STATE_BUCKET: shop-easy-tf-state-bucket
 
 jobs:
-  infrastructure:
-    name: 🏗️ Provision Infrastructure
+  deploy:
+    name: 🚀 Deploy Everything
     runs-on: ubuntu-latest
     if: ${{ inputs.action == 'deploy' }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🪣 Create S3 Bucket for Terraform State
+        run: |
+          aws s3api head-bucket --bucket $TF_STATE_BUCKET 2>/dev/null || \
+          aws s3 mb s3://$TF_STATE_BUCKET --region $AWS_REGION
+          aws s3api put-bucket-versioning --bucket $TF_STATE_BUCKET \
+            --versioning-configuration Status=Enabled
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: 🏗️ Provision Infrastructure
+        working-directory: terraform
+        run: |
+          terraform init
+          terraform apply -auto-approve -var="db_password=${{ secrets.DB_PASSWORD }}"
+          echo "ALB_DNS=$(terraform output -raw alb_dns)" >> $GITHUB_ENV
+          echo "RDS_HOST=$(terraform output -raw rds_endpoint)" >> $GITHUB_ENV
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: 🐳 Build & Push All Images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          for svc in product-service order-service frontend db-init; do
+            echo "🔨 Building $svc..."
+            docker build --platform linux/amd64 --provenance=false \
+              -t $REGISTRY/$PROJECT/$svc:latest ./$svc
+            docker push $REGISTRY/$PROJECT/$svc:latest
+          done
+
+      - name: 🗄️ Run Database Migration
+        run: |
+          TASK_ARN=$(aws ecs run-task \
+            --cluster $PROJECT-cluster \
+            --task-definition $PROJECT-db-init \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$(aws ec2 describe-subnets --filters Name=tag:Name,Values=$PROJECT-public-1 --query 'Subnets[0].SubnetId' --output text)],securityGroups=[$(aws ec2 describe-security-groups --filters Name=group-name,Values=$PROJECT-ecs-sg --query 'SecurityGroups[0].GroupId' --output text)],assignPublicIp=ENABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "⏳ Waiting for DB init task..."
+          aws ecs wait tasks-stopped --cluster $PROJECT-cluster --tasks $TASK_ARN
+          echo "✅ Database schema loaded"
+
+      - name: 🚀 Deploy Services
+        run: |
+          aws ecs update-service --cluster $PROJECT-cluster --service product-service --force-new-deployment
+          aws ecs update-service --cluster $PROJECT-cluster --service order-service --force-new-deployment
+          aws ecs update-service --cluster $PROJECT-cluster --service frontend --force-new-deployment
+
+      - name: ⏳ Wait for Stable
+        run: |
+          aws ecs wait services-stable --cluster $PROJECT-cluster \
+            --services product-service order-service frontend
+          echo "### 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "**App URL:** http://$ALB_DNS" >> $GITHUB_STEP_SUMMARY
+
+  destroy:
+    name: 💣 Destroy Everything
+    runs-on: ubuntu-latest
+    if: ${{ inputs.action == 'destroy' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -38,106 +113,14 @@ jobs:
         with:
           terraform_wrapper: false
 
-      - name: Terraform Apply
+      - name: 💣 Destroy Infrastructure
         working-directory: terraform
         run: |
-          # Override provider (no profile needed in CI, uses env credentials)
-          cat > provider_override.tf << 'EOF'
-          provider "aws" {
-            region = "us-east-1"
-          }
-          EOF
-
           terraform init
-          terraform apply -auto-approve \
-            -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="aws_profile="
+          terraform destroy -auto-approve -var="db_password=${{ secrets.DB_PASSWORD }}"
 
-          echo "### 🏗️ Infrastructure Output" >> $GITHUB_STEP_SUMMARY
-          echo "ALB DNS: $(terraform output -raw alb_dns)" >> $GITHUB_STEP_SUMMARY
-
-  deploy-services:
-    name: 🐳 Build & Deploy Services
-    runs-on: ubuntu-latest
-    needs: infrastructure
-    if: ${{ inputs.action == 'deploy' }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to ECR
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build & push all images
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
+      - name: 🪣 Delete State Bucket
         run: |
-          services=("product-service" "cart-service" "order-service" "payment-service" "frontend")
-          for svc in "${services[@]}"; do
-            echo "🔨 Building $svc..."
-            docker build --platform linux/amd64 --provenance=false \
-              -t $REGISTRY/$PROJECT/$svc:latest \
-              -t $REGISTRY/$PROJECT/$svc:${{ github.sha }} ./$svc
-            echo "📤 Pushing $svc..."
-            docker push $REGISTRY/$PROJECT/$svc --all-tags
-          done
-
-      - name: Deploy to ECS
-        run: |
-          for svc in product-service cart-service order-service payment-service frontend; do
-            aws ecs update-service --cluster $ECS_CLUSTER --service $svc --force-new-deployment
-          done
-
-      - name: Wait for stable
-        run: |
-          echo "⏳ Waiting for services to stabilize (~3 min)..."
-          aws ecs wait services-stable --cluster $ECS_CLUSTER \
-            --services product-service cart-service order-service payment-service frontend
-
-          ALB_DNS=$(aws elbv2 describe-load-balancers --names $PROJECT-alb \
-            --query 'LoadBalancers[0].DNSName' --output text)
-
-          echo "### 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
-          echo "App URL: http://$ALB_DNS" >> $GITHUB_STEP_SUMMARY
-
-  destroy:
-    name: 💣 Destroy Infrastructure
-    runs-on: ubuntu-latest
-    if: ${{ inputs.action == 'destroy' }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Destroy
-        working-directory: terraform
-        run: |
-          cat > provider_override.tf << 'EOF'
-          provider "aws" {
-            region = "us-east-1"
-          }
-          EOF
-
-          terraform init
-          terraform destroy -auto-approve \
-            -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="aws_profile="
-
-          echo "### 💣 Infrastructure Destroyed" >> $GITHUB_STEP_SUMMARY
+          aws s3 rm s3://$TF_STATE_BUCKET --recursive
+          aws s3 rb s3://$TF_STATE_BUCKET --force
+          echo "### 💣 All Resources Destroyed" >> $GITHUB_STEP_SUMMARY
