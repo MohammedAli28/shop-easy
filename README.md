@@ -6,7 +6,7 @@
 
 ## Architecture
 
-![Shop Easy Architecture](docs/architecture1.png)
+![Shop Easy Architecture](docs/architecture.svg)
 
 ### End-to-End Flow
 
@@ -20,7 +20,7 @@ User → Browser → ALB (port 80) → path-based routing:
                                     /payments*  → Order Service (ECS)
                                     /*          → Frontend (ECS/Nginx)
                                                         ↓
-                                    All services → MySQL RDS
+                                    All services → MySQL RDS (private)
 ```
 
 ---
@@ -49,7 +49,7 @@ Add **3 secrets** to your GitHub repo → Settings → Secrets → Actions:
 |--------|-------|
 | `AWS_ACCESS_KEY_ID` | Your IAM access key |
 | `AWS_SECRET_ACCESS_KEY` | Your IAM secret key |
-| `DB_PASSWORD` | Any strong password (e.g. `MyPass#2024`) |
+| `DB_PASSWORD` | Any password — letters + numbers only (e.g. `ShopEasy2024Strong`) |
 
 ### Deploy
 
@@ -57,9 +57,21 @@ Add **3 secrets** to your GitHub repo → Settings → Secrets → Actions:
 2. Click **Run workflow** → select `deploy`
 3. Wait ~15 min → get ALB URL in the summary ✅
 
+### What happens automatically:
+```
+Step 1: Creates S3 bucket for Terraform state
+Step 2: Provisions AWS infra (VPC, ALB, ECS, RDS, ECR)
+Step 3: Builds Docker images (linux/amd64)
+Step 4: Pushes images to ECR
+Step 5: Runs db-init ECS task (loads schema + seed data)
+Step 6: Deploys 3 services to ECS Fargate
+Step 7: Waits for healthy deployment
+Step 8: Outputs ALB URL ✅
+```
+
 ### Destroy
 
-Same workflow → select `destroy` → all resources deleted.
+Same workflow → select `destroy` → all resources + state bucket deleted.
 
 ---
 
@@ -81,8 +93,9 @@ Open http://localhost:3000
 | Backend | Node.js, Express |
 | Database | MySQL 8.0 (RDS) |
 | Containers | Docker, ECS Fargate |
-| Networking | VPC, ALB |
+| Networking | VPC, ALB (no NAT) |
 | Registry | Amazon ECR |
+| State | S3 (auto-created) |
 | IaC | Terraform |
 | CI/CD | GitHub Actions |
 
@@ -124,7 +137,17 @@ shop-easy/
 | ECS Fargate (3 tasks) | ~$25 |
 | RDS db.t3.micro | ~$15 |
 | ALB | ~$16 |
-| ECR | ~$1 |
+| ECR + S3 | ~$1 |
 | **Total** | **~$57/month** |
 
 > No NAT Gateway = saves $32/month vs typical setups.
+
+---
+
+## Security
+
+- RDS is **private** (`publicly_accessible = false`) — only ECS can reach it
+- ECS tasks in public subnets with security group locked to ALB traffic only
+- DB password stored as GitHub Secret — never in code
+- Terraform state encrypted in S3 with versioning
+- `INSERT IGNORE` schema — safe to re-run without data duplication

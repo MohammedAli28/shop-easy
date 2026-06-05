@@ -42,7 +42,10 @@ resource "aws_lb_target_group" "frontend" {
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
-  health_check { path = "/" }
+
+  health_check {
+    path = "/"
+  }
 }
 
 resource "aws_lb_target_group" "product" {
@@ -51,7 +54,10 @@ resource "aws_lb_target_group" "product" {
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
-  health_check { path = "/health" }
+
+  health_check {
+    path = "/health"
+  }
 }
 
 resource "aws_lb_target_group" "order" {
@@ -60,7 +66,10 @@ resource "aws_lb_target_group" "order" {
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
-  health_check { path = "/health" }
+
+  health_check {
+    path = "/health"
+  }
 }
 
 # Routing rules
