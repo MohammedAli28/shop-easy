@@ -73,14 +73,14 @@ INSERT IGNORE INTO users (id, email, name) VALUES
     (1, 'demo@shopeasy.com', 'Demo User');
 
 INSERT INTO products (id, name, description, price, image, category, stock) VALUES
-    (1, 'MacBook Pro 14"', 'Apple M3 Pro chip, 18GB RAM, 512GB SSD', 1999.99, 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&h=400&fit=crop', 'Electronics', 25),
-    (2, 'Sony WH-1000XM5', 'Industry-leading noise cancelling headphones', 349.99, 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop', 'Electronics', 80),
-    (3, 'Mechanical Keyboard', 'Cherry MX Brown switches, RGB backlit', 129.99, 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=400&h=400&fit=crop', 'Accessories', 150),
-    (4, '4K Monitor 27"', 'IPS panel, 144Hz refresh rate, USB-C', 599.99, 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=400&h=400&fit=crop', 'Electronics', 40),
-    (5, 'Wireless Mouse', 'Ergonomic design, 4000 DPI sensor', 59.99, 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&h=400&fit=crop', 'Accessories', 200),
-    (6, 'USB-C Hub', '7-in-1 adapter with HDMI, SD card reader', 49.99, 'https://images.unsplash.com/photo-1625842268584-8f3296236761?w=400&h=400&fit=crop', 'Accessories', 300),
-    (7, 'Webcam HD 1080p', 'Auto-focus, built-in microphone, privacy cover', 79.99, 'https://images.unsplash.com/photo-1587826080692-f439cd0b70da?w=400&h=400&fit=crop', 'Electronics', 120),
-    (8, 'Standing Desk Mat', 'Anti-fatigue ergonomic comfort mat', 39.99, 'https://images.unsplash.com/photo-1595225476474-87563907a212?w=400&h=400&fit=crop', 'Office', 250),
-    (9, 'Laptop Stand', 'Adjustable aluminum stand, heat dissipation', 44.99, 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=400&h=400&fit=crop', 'Accessories', 180),
-    (10, 'Noise Machine', 'White noise, nature sounds, sleep timer', 29.99, 'https://images.unsplash.com/photo-1558089687-f282ffcbc126?w=400&h=400&fit=crop', 'Office', 90)
+    (1, 'MacBook Pro 14"', 'Apple M3 Pro chip, 18GB RAM, 512GB SSD', 1999.99, 'https://cdn.dummyjson.com/product-images/laptops/apple-macbook-pro-14-inch-space-grey/thumbnail.webp', 'Electronics', 25),
+    (2, 'Sony WH-1000XM5', 'Industry-leading noise cancelling headphones', 349.99, 'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods-max-silver/thumbnail.webp', 'Electronics', 80),
+    (3, 'Mechanical Keyboard', 'Cherry MX Brown switches, RGB backlit', 129.99, 'https://cdn.dummyjson.com/product-images/laptops/asus-zenbook-pro-dual-screen-laptop/thumbnail.webp', 'Accessories', 150),
+    (4, '4K Monitor 27"', 'IPS panel, 144Hz refresh rate, USB-C', 599.99, 'https://cdn.dummyjson.com/product-images/laptops/new-dell-xps-13-9300-laptop/thumbnail.webp', 'Electronics', 40),
+    (5, 'Wireless Mouse', 'Ergonomic design, 4000 DPI sensor', 59.99, 'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpower-wireless-charger/thumbnail.webp', 'Accessories', 200),
+    (6, 'USB-C Hub', '7-in-1 adapter with HDMI, SD card reader', 49.99, 'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-magsafe-battery-pack/thumbnail.webp', 'Accessories', 300),
+    (7, 'Webcam HD 1080p', 'Auto-focus, built-in microphone, privacy cover', 79.99, 'https://cdn.dummyjson.com/product-images/mobile-accessories/tv-studio-camera-pedestal/thumbnail.webp', 'Electronics', 120),
+    (8, 'Standing Desk Mat', 'Anti-fatigue ergonomic comfort mat', 39.99, 'https://cdn.dummyjson.com/product-images/mobile-accessories/selfie-lamp-with-iphone/thumbnail.webp', 'Office', 250),
+    (9, 'Laptop Stand', 'Adjustable aluminum stand, heat dissipation', 44.99, 'https://cdn.dummyjson.com/product-images/mobile-accessories/monopod/thumbnail.webp', 'Accessories', 180),
+    (10, 'Noise Machine', 'White noise, nature sounds, sleep timer', 29.99, 'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-homepod-mini-cosmic-grey/thumbnail.webp', 'Office', 90)
 ON DUPLICATE KEY UPDATE image = VALUES(image), name = VALUES(name), description = VALUES(description), price = VALUES(price), category = VALUES(category), stock = VALUES(stock);
