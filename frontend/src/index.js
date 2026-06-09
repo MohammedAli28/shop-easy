@@ -36,10 +36,11 @@ function CheckoutForm({ cart, cartTotal, shipping, onSuccess, onError }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order_id: order.id })
       });
-      const { clientSecret } = await intentRes.json();
+      const intentData = await intentRes.json();
+      if (intentData.error) { onError(intentData.error); setProcessing(false); return; }
 
       // 3. Confirm card payment
-      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      const { error, paymentIntent } = await stripe.confirmCardPayment(intentData.clientSecret, {
         payment_method: { card: elements.getElement(CardElement) }
       });
 

@@ -55,7 +55,6 @@ app.post('/orders', async (req, res) => {
         [order.insertId, item.product_id, item.quantity, item.price]);
       await conn.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id]);
     }
-    await conn.query('DELETE FROM cart_items WHERE user_id = ?', [user_id]);
     await conn.commit();
     res.status(201).json({ id: order.insertId, total, status: 'pending' });
   } catch (e) {
@@ -97,6 +96,8 @@ app.post('/payments/confirm', async (req, res) => {
         [order_id, order[0].total]
       );
       await pool.query('UPDATE orders SET status = "paid" WHERE id = ?', [order_id]);
+      // Clear cart only after successful payment
+      await pool.query('DELETE FROM cart_items WHERE user_id = ?', [order[0].user_id]);
       res.json({ status: 'completed', amount: order[0].total });
     } else {
       await pool.query(
