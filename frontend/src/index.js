@@ -12,6 +12,7 @@ function App() {
   const [orders, setOrders] = useState([]);
   const [notification, setNotification] = useState('');
   const [shipping, setShipping] = useState({ name: '', email: '', address: '' });
+  const [activeFilter, setActiveFilter] = useState('All');
 
   useEffect(() => { fetchProducts(); fetchCart(); }, []);
 
@@ -87,10 +88,15 @@ function App() {
             <section className="products-section">
               <div className="section-header">
                 <h2>Featured Products</h2>
-                <span className="product-count">{products.length} items</span>
+                <span className="product-count">{products.filter(p => activeFilter === 'All' || p.category === activeFilter).length} items</span>
+              </div>
+              <div className="filter-bar">
+                {['All', ...new Set(products.map(p => p.category))].map(cat => (
+                  <button key={cat} className={`filter-btn ${activeFilter === cat ? 'active' : ''}`} onClick={() => setActiveFilter(cat)}>{cat}</button>
+                ))}
               </div>
               <div className="products-grid">
-                {products.map(p => (
+                {products.filter(p => activeFilter === 'All' || p.category === activeFilter).map(p => (
                   <div key={p.id} className="product-card">
                     <div className="product-image">
                       <img src={p.image} alt={p.name} />

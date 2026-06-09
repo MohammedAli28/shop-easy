@@ -34,17 +34,31 @@ nav button.active { background: rgba(233,69,96,0.9); color: white; border-color:
 
 /* ─── Hero ─── */
 .hero {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 60px 24px; text-align: center; margin-bottom: 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #e94560 100%);
+  padding: 72px 24px; text-align: center; margin-bottom: 40px;
+  position: relative; overflow: hidden;
 }
-.hero-content h1 { color: white; font-size: 2.4rem; font-weight: 800; margin-bottom: 10px; letter-spacing: -1px; }
-.hero-content p { color: rgba(255,255,255,0.85); font-size: 1.1rem; }
+.hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 50%);
+}
+.hero-content h1 { color: white; font-size: 2.8rem; font-weight: 800; margin-bottom: 12px; letter-spacing: -1px; position: relative; }
+.hero-content p { color: rgba(255,255,255,0.9); font-size: 1.15rem; position: relative; }
 
 /* ─── Products ─── */
 .products-section { max-width: 1200px; margin: 0 auto; padding: 0 24px 60px; }
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 .section-header h2 { font-size: 1.5rem; font-weight: 700; }
 .product-count { color: #6b7280; font-size: 0.9rem; background: #e5e7eb; padding: 4px 12px; border-radius: 20px; }
+
+/* ─── Filter Bar ─── */
+.filter-bar { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.filter-btn {
+  background: white; border: 1px solid #e5e7eb; padding: 8px 18px; border-radius: 20px;
+  font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s; color: #4b5563;
+}
+.filter-btn:hover { border-color: #6366f1; color: #6366f1; }
+.filter-btn.active { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border-color: transparent; box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
 
 .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
 .product-card {
