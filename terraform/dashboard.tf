@@ -3,69 +3,57 @@ resource "aws_cloudwatch_dashboard" "orders" {
 
   dashboard_body = jsonencode({
     widgets = [
-      # Row 1: Big bold metric counters (metric widgets = largest font)
+      # Row 1: Counter panels (max height=6 for largest singleValue font)
       {
-        type   = "metric"
+        type   = "log"
         x      = 0
         y      = 0
         width  = 6
         height = 6
         properties = {
-          title                = "✅ Orders Booked"
-          region               = var.region
-          stat                 = "Sum"
-          period               = 2592000
-          view                 = "singleValue"
-          metrics              = [["ShopEasy/Orders", "OrdersBooked"]]
-          setPeriodToTimeRange = true
+          title  = "✅ Orders Booked"
+          region = var.region
+          query  = "SOURCE '/ecs/${var.project}' | filter @message like /ORDER_BOOKED/ | stats count() as Booked"
+          view   = "singleValue"
         }
       },
       {
-        type   = "metric"
+        type   = "log"
         x      = 6
         y      = 0
         width  = 6
         height = 6
         properties = {
-          title                = "❌ Orders Failed"
-          region               = var.region
-          stat                 = "Sum"
-          period               = 2592000
-          view                 = "singleValue"
-          metrics              = [["ShopEasy/Orders", "OrdersFailed"]]
-          setPeriodToTimeRange = true
+          title  = "❌ Orders Failed"
+          region = var.region
+          query  = "SOURCE '/ecs/${var.project}' | filter @message like /ORDER_FAILED/ | stats count() as Failed"
+          view   = "singleValue"
         }
       },
       {
-        type   = "metric"
+        type   = "log"
         x      = 12
         y      = 0
         width  = 6
         height = 6
         properties = {
-          title                = "⏳ Orders Pending"
-          region               = var.region
-          stat                 = "Sum"
-          period               = 2592000
-          view                 = "singleValue"
-          metrics              = [["ShopEasy/Orders", "OrdersPending"]]
-          setPeriodToTimeRange = true
+          title  = "⏳ Orders Pending"
+          region = var.region
+          query  = "SOURCE '/ecs/${var.project}' | filter @message like /ORDER_PENDING/ | stats count() as Pending"
+          view   = "singleValue"
         }
       },
       {
-        type   = "metric"
+        type   = "log"
         x      = 18
         y      = 0
         width  = 6
         height = 6
         properties = {
-          title                = "💰 Revenue Received ($)"
-          region               = var.region
-          stat                 = "Sum"
-          period               = 2592000
-          view                 = "singleValue"
-          metrics              = [["ShopEasy/Orders", "Revenue"]]
-          setPeriodToTimeRange = true
+          title  = "💰 Revenue Received ($)"
+          region = var.region
+          query  = "SOURCE '/ecs/${var.project}' | filter @message like /ORDER_BOOKED/ | parse @message /\"amount\":(?<amt>[\\d.]+)/ | stats sum(amt) as Revenue"
+          view   = "singleValue"
         }
       },
       # Row 2: Orders over time
