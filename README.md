@@ -105,6 +105,7 @@ Test card: `4242 4242 4242 4242` | Any future expiry | Any CVC
 | Backend | Node.js, Express, Stripe SDK |
 | Database | MySQL 8.0 (RDS) |
 | Payments | Stripe (test mode) |
+| Monitoring | CloudWatch Dashboard + Logs Insights |
 | Containers | Docker, ECS Fargate |
 | Networking | VPC, ALB (no NAT) |
 | Registry | Amazon ECR |
@@ -120,10 +121,10 @@ Test card: `4242 4242 4242 4242` | Any future expiry | Any CVC
 shop-easy/
 ├── frontend/           # React SPA + Nginx
 ├── product-service/    # Products + Cart API
-├── order-service/      # Orders + Payments API
+├── order-service/      # Orders + Payments API (structured logging)
 ├── db-init/            # DB migration container (runs once)
 ├── database/           # SQL schema + seed data
-├── terraform/          # AWS infra (VPC, ECS, RDS, ALB)
+├── terraform/          # AWS infra (VPC, ECS, RDS, ALB, CloudWatch)
 ├── .github/workflows/  # 1-click CI/CD pipeline
 ├── docs/               # Architecture diagrams
 ├── docker-compose.yml  # Local development
@@ -154,6 +155,38 @@ shop-easy/
 | **Total** | **~$57/month** |
 
 > No NAT Gateway = saves $32/month vs typical setups.
+
+---
+
+## Monitoring (CloudWatch Dashboard)
+
+Auto-provisioned via Terraform — accessible at:
+```
+https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=shop-easy-orders
+```
+
+### Dashboard Panels
+
+| Panel | Type | Shows |
+|-------|------|-------|
+| ✅ Orders Booked | Counter | Total successful payments |
+| ❌ Orders Failed | Counter | Total failed payments |
+| ⏳ Orders Pending | Counter | Orders awaiting payment |
+| 💰 Revenue Received | Counter | Total $ from paid orders |
+| 📊 Orders Over Time | Line chart | Booked vs Failed vs Pending (5min bins) |
+| 💰 Revenue Over Time | Bar chart | Hourly revenue |
+| 📋 Recent Events | Table | Last 50 order events with details |
+
+> Use CloudWatch time range selector (1h, 3h, 12h, 1d, 1w) to filter all panels.
+
+### Structured Log Events
+
+| Event | Trigger | Fields |
+|-------|---------|--------|
+| `ORDER_PENDING` | Order created | order_id, user_id, amount |
+| `ORDER_BOOKED` | Payment succeeded | order_id, user_id, amount |
+| `ORDER_FAILED` | Payment failed | order_id, user_id, amount, stripe_status |
+| `ORDER_ERROR` | Exception | order_id, error |
 
 ---
 

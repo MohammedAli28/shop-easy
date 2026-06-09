@@ -8,13 +8,13 @@
 | Backend | Node.js 18, Express |
 | Database | MySQL 8.0 (AWS RDS) |
 | Payments | Stripe (test mode) |
+| Monitoring | CloudWatch Dashboard + Logs Insights |
 | Containers | Docker, AWS ECS Fargate |
 | Load Balancer | AWS ALB (Application Load Balancer) |
 | Container Registry | Amazon ECR |
 | Infrastructure | Terraform (IaC) |
 | CI/CD | GitHub Actions |
 | State Storage | AWS S3 (auto-created) |
-| Monitoring | AWS CloudWatch Logs |
 
 ---
 
@@ -109,13 +109,13 @@ Click **New repository secret** for each:
 ### What happens automatically:
 ```
 Step 1: Creates S3 bucket for Terraform state
-Step 2: Provisions AWS infra (VPC, ALB, ECS, RDS, ECR)
+Step 2: Provisions AWS infra (VPC, ALB, ECS, RDS, ECR, CloudWatch Dashboard)
 Step 3: Builds Docker images (linux/amd64, no cache)
 Step 4: Pushes images to ECR
 Step 5: Runs db-init ECS task (loads schema + seed data)
 Step 6: Deploys 3 services to ECS Fargate
 Step 7: Waits for healthy deployment
-Step 8: Outputs ALB URL ✅
+Step 8: Outputs ALB URL + Dashboard URL ✅
 ```
 
 ### Step 4: Destroy (when done)
@@ -223,6 +223,50 @@ aws elbv2 describe-load-balancers --names shop-easy-alb --query 'LoadBalancers[0
 | INSERT IGNORE in schema | Idempotent — safe to re-deploy without duplicating data |
 | ALTER TABLE migration | Handles schema changes on existing databases |
 | --no-cache builds | Ensures fresh code deployed every time |
+| CloudWatch Logs Insights | Splunk-style dashboard — no extra infra, queries existing logs |
+| Structured JSON logs | Enables metric extraction without custom CloudWatch metrics |
+
+---
+
+## Monitoring
+
+After deployment, a CloudWatch Dashboard is auto-created:
+
+```
+https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=shop-easy-orders
+```
+
+### Dashboard Panels
+
+| Panel | What it shows |
+|-------|---------------|
+| ✅ Orders Booked | Count of successful payments |
+| ❌ Orders Failed | Count of failed payments |
+| ⏳ Orders Pending | Count of orders awaiting payment |
+| 💰 Revenue Received | Total $ received from successful orders |
+| 📊 Orders Over Time | Line chart — booked vs failed vs pending |
+| 💰 Revenue Over Time | Bar chart — hourly revenue |
+| 📋 Recent Events | Table — last 50 order events |
+
+### Time Filtering
+
+Use CloudWatch's built-in time range selector at the top of the dashboard:
+- 1 hour, 3 hours, 12 hours, 1 day, 3 days, 1 week, custom
+
+### Log Events
+
+The order-service emits structured JSON logs:
+
+```json
+{"timestamp":"2024-...","event":"ORDER_BOOKED","order_id":1,"user_id":"u1","amount":999.99}
+{"timestamp":"2024-...","event":"ORDER_FAILED","order_id":2,"user_id":"u1","amount":49.99,"stripe_status":"requires_payment_method"}
+{"timestamp":"2024-...","event":"ORDER_PENDING","order_id":3,"user_id":"u1","amount":149.99}
+```
+
+These are queryable via CloudWatch Logs Insights:
+```
+SOURCE '/ecs/shop-easy' | filter event = 'ORDER_BOOKED' | stats sum(amount) as Revenue by bin(1h)
+```
 
 ---
 
