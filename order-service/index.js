@@ -80,7 +80,11 @@ app.post('/payments/create-intent', async (req, res) => {
       amount: Math.round(order[0].total * 100), // cents
       currency: 'usd',
       receipt_email: order[0].shipping_email,
-      metadata: { order_id: String(order_id), customer: order[0].shipping_name, email: order[0].shipping_email },
+      shipping: {
+        name: order[0].shipping_name,
+        address: { line1: order[0].shipping_address }
+      },
+      metadata: { order_id: String(order_id), customer: order[0].shipping_name, email: order[0].shipping_email, address: order[0].shipping_address },
     });
 
     res.json({ clientSecret: paymentIntent.client_secret });
