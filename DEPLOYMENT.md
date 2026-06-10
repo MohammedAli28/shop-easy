@@ -151,6 +151,8 @@ Test card: `4242 4242 4242 4242` | Any future expiry | Any CVC
 | `4000 0000 0000 0002` | Card declined | ❌ Orders Failed |
 | `4000 0000 0000 9995` | Insufficient funds | ❌ Orders Failed |
 | `4000 0000 0000 0069` | Expired card | ❌ Orders Failed |
+
+Reset data:
 ```bash
 docker compose down -v
 docker compose up --build

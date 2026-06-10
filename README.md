@@ -6,11 +6,11 @@
 
 ## Architecture
 
-![Shop Easy Architecture](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/main/docs/architecture-proj.png)
+![Shop Easy Architecture](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/main/docs/AWS_ECS_Microservices_Architecture.png)
 
 ### Live Demo Screenshot
 
-![Shop Easy Screenshot](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/main/docs/screen1.png)
+![Shop Easy Screenshot](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/main/docs/livedemo.png)
 
 ### End-to-End Flow
 
