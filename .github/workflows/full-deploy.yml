@@ -35,8 +35,14 @@ jobs:
 
       - name: 🪣 Create S3 Bucket for Terraform State
         run: |
-          aws s3api head-bucket --bucket $TF_STATE_BUCKET 2>/dev/null || \
-          aws s3 mb s3://$TF_STATE_BUCKET --region $AWS_REGION
+          if ! aws s3api head-bucket --bucket $TF_STATE_BUCKET 2>/dev/null; then
+            echo "Creating bucket..."
+            for i in 1 2 3; do
+              aws s3 mb s3://$TF_STATE_BUCKET --region $AWS_REGION && break
+              echo "Retry $i... waiting 10s"
+              sleep 10
+            done
+          fi
           aws s3api put-bucket-versioning --bucket $TF_STATE_BUCKET \
             --versioning-configuration Status=Enabled
 
