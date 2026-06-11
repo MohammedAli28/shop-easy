@@ -12,10 +12,6 @@
 
 ![Shop Easy Screenshot](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/feature/stripe-monitoring/docs/livedemo.png)
 
-### End-to-End Flow
-
-![Shop Easy Flow](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/feature/stripe-monitoring/docs/flow.png)
-
 ---
 
 ## Services (3 Fargate Tasks)
