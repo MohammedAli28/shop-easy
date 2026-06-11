@@ -6,7 +6,7 @@
 
 ## Architecture
 
-![Shop Easy Architecture](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/feature/stripe-monitoring/docs/AWS_ECS_Microservices_Architecture.png)
+![Shop Easy Architecture](https://github.com/aniljadhavmca/shop-easy/blob/feature/stripe-monitoring/docs/flow.png)
 
 ### Live Demo Screenshot
 
