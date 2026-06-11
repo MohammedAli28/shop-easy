@@ -14,18 +14,7 @@
 
 ### End-to-End Flow
 
-```
-Developer → git push → GitHub Actions → Build Docker → Push ECR → Deploy ECS
-                                                                        ↓
-User → Browser → ALB (port 80) → path-based routing:
-                                    /products*  → Product Service (ECS)
-                                    /cart*      → Product Service (ECS)
-                                    /orders*    → Order Service (ECS)
-                                    /payments*  → Order Service (ECS) → Stripe API
-                                    /*          → Frontend (ECS/Nginx)
-                                                        ↓
-                                    All services → MySQL RDS (private)
-```
+![Shop Easy Flow](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/feature/stripe-monitoring/docs/flow.png)
 
 ---
 
