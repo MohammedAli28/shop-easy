@@ -62,6 +62,7 @@ app.put('/products/:id', async (req, res) => {
 app.delete('/products/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM cart_items WHERE product_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM order_items WHERE product_id = ?', [req.params.id]);
     await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
     res.status(204).end();
   } catch (e) { res.status(500).json({ error: e.message }); }

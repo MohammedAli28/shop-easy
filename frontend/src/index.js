@@ -698,7 +698,7 @@ function App() {
                               <td><span className={p.stock < 10 ? 'stock-low' : 'stock-ok'}>{p.stock}</span></td>
                               <td className="admin-actions-cell">
                                 <button className="admin-edit-btn" onClick={() => { setEditingProduct(p); setShowProductForm(true); setProductForm({ name: p.name, description: p.description || '', price: p.price, image: p.image || '', category: p.category || '', stock: p.stock }); }}>✏️</button>
-                                <button className="admin-delete-btn" onClick={async () => { if (window.confirm(`Delete "${p.name}"?`)) { await fetch(`${API}/products/${p.id}`, { method: 'DELETE' }); fetchProducts(); notify('Product deleted', 'success'); } }}>🗑️</button>
+                                <button className="admin-delete-btn" onClick={async () => { if (window.confirm(`Delete "${p.name}"?`)) { const r = await fetch(`${API}/products/${p.id}`, { method: 'DELETE' }); if (r.ok) { fetchProducts(); notify('Product deleted', 'success'); } else { notify('Failed to delete product', 'error'); } } }}>🗑️</button>
                               </td>
                             </tr>
                           ))}
