@@ -95,6 +95,7 @@ function App() {
   const [adminStats, setAdminStats] = useState({});
   const [allOrders, setAllOrders] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [showProductForm, setShowProductForm] = useState(false);
   const [productForm, setProductForm] = useState({ name: '', description: '', price: '', image: '', category: '', stock: '' });
   const [productSearch, setProductSearch] = useState('');
 
@@ -404,12 +405,12 @@ function App() {
                       <h2>Products</h2>
                       <p className="admin-subtitle">{products.length} products in catalog</p>
                     </div>
-                    <button className="admin-add-btn" onClick={() => { setEditingProduct(null); setProductForm({ name: '', description: '', price: '', image: '', category: '', stock: '' }); }}>
+                    <button className="admin-add-btn" onClick={() => { setEditingProduct(null); setShowProductForm(true); setProductForm({ name: '', description: '', price: '', image: '', category: '', stock: '' }); }}>
                       + Add Product
                     </button>
                   </div>
 
-                  {(editingProduct !== null || productForm.name !== '' || productForm.price !== '') && (
+                  {(showProductForm || editingProduct !== null) && (
                     <div className="admin-section product-form-card">
                       <h3>{editingProduct ? `✏️ Edit: ${editingProduct.name}` : '➕ New Product'}</h3>
                       <form onSubmit={async (e) => {
@@ -425,6 +426,7 @@ function App() {
                         }
                         setProductForm({ name: '', description: '', price: '', image: '', category: '', stock: '' });
                         setEditingProduct(null);
+                        setShowProductForm(false);
                         fetchProducts();
                       }}>
                         <div className="admin-form-grid">
@@ -438,7 +440,7 @@ function App() {
                         {productForm.image && <div className="admin-img-preview"><img src={productForm.image} alt="Preview" onError={e => e.target.style.display='none'} onLoad={e => e.target.style.display='block'} /></div>}
                         <div className="admin-form-actions">
                           <button type="submit" className="admin-save-btn">{editingProduct ? 'Update Product' : 'Add Product'}</button>
-                          <button type="button" className="admin-cancel-btn" onClick={() => { setEditingProduct(null); setProductForm({ name: '', description: '', price: '', image: '', category: '', stock: '' }); }}>Cancel</button>
+                          <button type="button" className="admin-cancel-btn" onClick={() => { setEditingProduct(null); setShowProductForm(false); setProductForm({ name: '', description: '', price: '', image: '', category: '', stock: '' }); }}>Cancel</button>
                         </div>
                       </form>
                     </div>
@@ -460,7 +462,7 @@ function App() {
                               <td>${parseFloat(p.price).toFixed(2)}</td>
                               <td><span className={p.stock < 10 ? 'stock-low' : 'stock-ok'}>{p.stock}</span></td>
                               <td className="admin-actions-cell">
-                                <button className="admin-edit-btn" onClick={() => { setEditingProduct(p); setProductForm({ name: p.name, description: p.description || '', price: p.price, image: p.image || '', category: p.category || '', stock: p.stock }); window.scrollTo(0, 200); }}>✏️</button>
+                                <button className="admin-edit-btn" onClick={() => { setEditingProduct(p); setShowProductForm(true); setProductForm({ name: p.name, description: p.description || '', price: p.price, image: p.image || '', category: p.category || '', stock: p.stock }); window.scrollTo(0, 200); }}>✏️</button>
                                 <button className="admin-delete-btn" onClick={async () => { if (window.confirm(`Delete "${p.name}"?`)) { await fetch(`${API}/products/${p.id}`, { method: 'DELETE' }); fetchProducts(); notify('Product deleted', 'success'); } }}>🗑️</button>
                               </td>
                             </tr>
