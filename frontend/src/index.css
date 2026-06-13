@@ -368,6 +368,90 @@ nav button.active { background: rgba(233,69,96,0.9); color: white; border-color:
   .admin-page-header { flex-direction: column; gap: 12px; }
 }
 
+/* ─── Trust Bar ─── */
+.trust-bar {
+  max-width: 1200px; margin: 0 auto 40px; padding: 0 24px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+}
+.trust-item {
+  background: white; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 14px;
+  border: 1px solid #f3f4f6; transition: transform 0.2s;
+}
+.trust-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+.trust-icon { font-size: 2rem; flex-shrink: 0; }
+.trust-item strong { font-size: 0.9rem; display: block; color: #1a1a2e; }
+.trust-item p { font-size: 0.78rem; color: #6b7280; margin: 2px 0 0; }
+
+/* ─── Hot Deals ─── */
+.hot-deals { max-width: 1200px; margin: 0 auto 40px; padding: 0 24px; }
+.hot-deals-inner h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 16px; }
+.hot-deals-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.hot-deal-card {
+  background: white; border-radius: 14px; overflow: hidden; position: relative;
+  border: 2px solid #fee2e2; cursor: pointer; transition: all 0.3s;
+}
+.hot-deal-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(239,68,68,0.15); border-color: #ef4444; }
+.hot-badge {
+  position: absolute; top: 10px; right: 10px; background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; z-index: 2;
+}
+.hot-deal-card img { width: 100%; height: 160px; object-fit: cover; }
+.hot-deal-info { padding: 14px; }
+.hot-deal-info h4 { font-size: 0.88rem; font-weight: 600; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hot-deal-price { display: flex; align-items: center; gap: 8px; }
+.hot-original { text-decoration: line-through; color: #9ca3af; font-size: 0.82rem; }
+.hot-current { font-size: 1.1rem; font-weight: 800; color: #ef4444; }
+@media (max-width: 768px) { .hot-deals-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .hot-deals-grid { grid-template-columns: 1fr 1fr; } .hot-deal-card img { height: 120px; } }
+
+/* ─── Product Slider ─── */
+.slider-section { max-width: 1200px; margin: 0 auto 40px; padding: 0 24px; overflow: hidden; }
+.slider-section h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 16px; }
+.product-slider { overflow: hidden; position: relative; }
+.slider-track {
+  display: flex; gap: 16px; animation: scroll 30s linear infinite; width: max-content;
+}
+.slider-track:hover { animation-play-state: paused; }
+@keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.slider-card {
+  flex-shrink: 0; width: 180px; background: white; border-radius: 12px; padding: 16px;
+  text-align: center; border: 1px solid #f3f4f6; cursor: pointer; transition: all 0.2s;
+}
+.slider-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+.slider-card img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
+.slider-name { display: block; font-size: 0.82rem; font-weight: 600; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slider-price { display: block; font-size: 0.9rem; font-weight: 800; color: #6366f1; margin-top: 4px; }
+
+/* ─── Promo Banner ─── */
+.promo-banner {
+  max-width: 1200px; margin: 0 auto 50px; padding: 0 24px;
+}
+.promo-content {
+  background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+  border-radius: 16px; padding: 40px; text-align: center; position: relative; overflow: hidden;
+}
+.promo-content::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(233,69,96,0.15) 0%, transparent 50%);
+}
+.promo-tag {
+  display: inline-block; background: #e94560; color: white; padding: 6px 16px;
+  border-radius: 20px; font-size: 0.8rem; font-weight: 700; margin-bottom: 12px; position: relative;
+}
+.promo-content h2 { color: white; font-size: 1.6rem; font-weight: 800; margin-bottom: 8px; position: relative; }
+.promo-content p { color: rgba(255,255,255,0.8); font-size: 0.95rem; position: relative; }
+.promo-content strong { color: #fbbf24; }
+
+@media (max-width: 768px) {
+  .trust-bar { grid-template-columns: 1fr 1fr; }
+  .slider-card { width: 150px; }
+  .promo-content { padding: 28px 20px; }
+  .promo-content h2 { font-size: 1.2rem; }
+}
+@media (max-width: 480px) {
+  .trust-bar { grid-template-columns: 1fr; }
+}
+
 /* ─── Footer ─── */
 .footer { background: #1a1a2e; color: white; margin-top: auto; }
 

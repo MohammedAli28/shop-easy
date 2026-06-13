@@ -239,6 +239,47 @@ function App() {
                 <button className="hero-cta" onClick={() => document.querySelector('.products-section').scrollIntoView({ behavior: 'smooth' })}>Shop Now →</button>
               </div>
             </section>
+
+            {products.length > 0 && (
+              <section className="hot-deals">
+                <div className="hot-deals-inner">
+                  <h2>💥 Hot Deals</h2>
+                  <div className="hot-deals-grid">
+                    {products.slice().sort(() => 0.5 - Math.random()).slice(0, 4).map(p => (
+                      <div key={p.id} className="hot-deal-card" onClick={() => setSelectedProduct(p)}>
+                        <span className="hot-badge">🔥 HOT</span>
+                        <img src={p.image} alt={p.name} />
+                        <div className="hot-deal-info">
+                          <h4>{p.name}</h4>
+                          <div className="hot-deal-price">
+                            <span className="hot-original">${(p.price * 1.4).toFixed(2)}</span>
+                            <span className="hot-current">${parseFloat(p.price).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {products.length > 0 && (
+              <section className="slider-section">
+                <h2>🔥 Trending Now</h2>
+                <div className="product-slider">
+                  <div className="slider-track">
+                    {[...products, ...products].map((p, i) => (
+                      <div key={i} className="slider-card" onClick={() => setSelectedProduct(p)}>
+                        <img src={p.image} alt={p.name} />
+                        <span className="slider-name">{p.name}</span>
+                        <span className="slider-price">${parseFloat(p.price).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
             <section className="products-section">
               <div className="section-header">
                 <h2>Featured Products</h2>
@@ -273,6 +314,21 @@ function App() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <section className="trust-bar">
+              <div className="trust-item"><span className="trust-icon">🚚</span><div><strong>Free Shipping</strong><p>On orders over $99</p></div></div>
+              <div className="trust-item"><span className="trust-icon">🔒</span><div><strong>Secure Payment</strong><p>256-bit SSL encryption</p></div></div>
+              <div className="trust-item"><span className="trust-icon">🔄</span><div><strong>Easy Returns</strong><p>30-day money back</p></div></div>
+              <div className="trust-item"><span className="trust-icon">🏆</span><div><strong>Top Quality</strong><p>Premium brands only</p></div></div>
+            </section>
+
+            <section className="promo-banner">
+              <div className="promo-content">
+                <span className="promo-tag">⚡ Flash Deal</span>
+                <h2>Members Get Extra 10% Off</h2>
+                <p>Use code <strong>EASY10</strong> at checkout. Limited time only.</p>
               </div>
             </section>
           </>
@@ -828,7 +884,7 @@ function App() {
           </div>
         </div>
         <div className="footer-bottom">
-          <p>© 2024 ShopEasy. Microservices Demo on AWS.</p>
+          <p>© 2024 ShopEasy. All rights reserved. Proudly built by <strong>Anil Jadhav</strong></p>
         </div>
       </footer>
     </div>
