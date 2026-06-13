@@ -325,7 +325,7 @@ function App() {
                 <span>Admin Panel</span>
               </div>
               <nav className="admin-nav">
-                <button className={adminPage === 'dashboard' ? 'active' : ''} onClick={() => { setAdminPage('dashboard'); fetchAdminStats(); }}>
+                <button className={adminPage === 'dashboard' ? 'active' : ''} onClick={() => { setAdminPage('dashboard'); fetchAdminStats(); fetchAllOrders(); }}>
                   <span>📊</span> Dashboard
                 </button>
                 <button className={adminPage === 'products' ? 'active' : ''} onClick={() => { setAdminPage('products'); fetchProducts(); }}>
@@ -341,18 +341,16 @@ function App() {
             </aside>
             <div className="admin-content">
 
-              {adminPage === 'dashboard' && (
+              {adminPage === 'dashboard' && (() => {
+                const paidRevenue = allOrders.filter(o => o.status === 'paid').reduce((s, o) => s + parseFloat(o.total), 0);
+                const failedAmount = allOrders.filter(o => o.status === 'failed').reduce((s, o) => s + parseFloat(o.total), 0);
+                const pendingAmount = allOrders.filter(o => o.status === 'pending').reduce((s, o) => s + parseFloat(o.total), 0);
+                const maxBar = Math.max(paidRevenue, failedAmount, pendingAmount, 1);
+                return (
                 <div className="admin-dashboard">
                   <h2>Dashboard</h2>
                   <p className="admin-subtitle">Overview of your store</p>
                   <div className="stats-grid">
-                    <div className="stat-card stat-blue">
-                      <span className="stat-icon">📦</span>
-                      <div className="stat-info">
-                        <span className="stat-value">{products.length}</span>
-                        <span className="stat-label">Products</span>
-                      </div>
-                    </div>
                     <div className="stat-card stat-purple">
                       <span className="stat-icon">📃</span>
                       <div className="stat-info">
@@ -364,17 +362,52 @@ function App() {
                       <span className="stat-icon">✅</span>
                       <div className="stat-info">
                         <span className="stat-value">{adminStats.paid_orders || 0}</span>
-                        <span className="stat-label">Paid Orders</span>
+                        <span className="stat-label">Paid</span>
                       </div>
                     </div>
-                    <div className="stat-card stat-orange">
-                      <span className="stat-icon">💰</span>
+                    <div className="stat-card stat-red">
+                      <span className="stat-icon">❌</span>
                       <div className="stat-info">
-                        <span className="stat-value">${parseFloat(adminStats.total_revenue || 0).toFixed(2)}</span>
-                        <span className="stat-label">Revenue</span>
+                        <span className="stat-value">{adminStats.failed_orders || 0}</span>
+                        <span className="stat-label">Failed</span>
+                      </div>
+                    </div>
+                    <div className="stat-card stat-blue">
+                      <span className="stat-icon">🛒</span>
+                      <div className="stat-info">
+                        <span className="stat-value">{products.length}</span>
+                        <span className="stat-label">Products Live</span>
                       </div>
                     </div>
                   </div>
+
+                  <div className="admin-section">
+                    <h3>💰 Revenue Overview</h3>
+                    <div className="revenue-chart">
+                      <div className="chart-row">
+                        <span className="chart-label">Paid</span>
+                        <div className="chart-bar-wrap">
+                          <div className="chart-bar bar-green" style={{width: `${(paidRevenue / maxBar) * 100}%`}}></div>
+                        </div>
+                        <span className="chart-value green">${paidRevenue.toFixed(2)}</span>
+                      </div>
+                      <div className="chart-row">
+                        <span className="chart-label">Failed</span>
+                        <div className="chart-bar-wrap">
+                          <div className="chart-bar bar-red" style={{width: `${(failedAmount / maxBar) * 100}%`}}></div>
+                        </div>
+                        <span className="chart-value red">${failedAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="chart-row">
+                        <span className="chart-label">Pending</span>
+                        <div className="chart-bar-wrap">
+                          <div className="chart-bar bar-yellow" style={{width: `${(pendingAmount / maxBar) * 100}%`}}></div>
+                        </div>
+                        <span className="chart-value yellow">${pendingAmount.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="admin-section">
                     <h3>Recent Orders</h3>
                     <div className="admin-table-wrapper">
@@ -396,7 +429,8 @@ function App() {
                     </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {adminPage === 'products' && (
                 <div className="admin-products">
