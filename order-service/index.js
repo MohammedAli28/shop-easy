@@ -28,6 +28,27 @@ app.get('/health', async (req, res) => {
   catch (e) { res.status(503).json({ status: 'unhealthy' }); }
 });
 
+// ─── Admin Auth ───
+const ADMIN_USER = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASSWORD || 'ShopEasy2026';
+
+app.post('/auth/admin', (req, res) => {
+  const { username, password } = req.body;
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ success: false, error: 'Invalid credentials' });
+  }
+});
+
+// ─── Orders by Email (Customer Portal) ───
+app.get('/orders/by-email/:email', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM orders WHERE shipping_email = ? ORDER BY created_at DESC', [req.params.email]);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Orders ───
 app.get('/orders/stats/summary', async (req, res) => {
   try {

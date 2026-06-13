@@ -1,6 +1,6 @@
 # 🛍️ Shop Easy — E-Commerce Microservices
 
-> Lightweight microservices e-commerce app on AWS ECS Fargate with Stripe payments. 1-click deploy via GitHub Actions.
+> Lightweight microservices e-commerce app on AWS ECS Fargate with Stripe payments, admin dashboard, and customer portal. 1-click deploy via GitHub Actions.
 
 ---
 
@@ -8,19 +8,36 @@
 
 ![Shop Easy Architecture](https://github.com/aniljadhavmca/shop-easy/blob/feature/stripe-monitoring/docs/flow.png)
 
-### Live Demo Screenshot
-
-![Shop Easy Screenshot](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/feature/stripe-monitoring/docs/livedemo.png)
-
 ---
 
 ## Services (3 Fargate Tasks)
 
 | Service | Port | Handles | Tech |
 |---------|------|---------|------|
-| Frontend | 80 | UI — browse, cart, checkout, Stripe card form | React + Stripe Elements + Nginx |
-| Product Service | 4001 | Products + Cart | Node.js/Express |
-| Order Service | 4002 | Orders + Stripe Payments | Node.js/Express + Stripe SDK |
+| Frontend | 80 | UI — shop, cart, checkout, admin panel, customer portal | React + Recharts + Stripe Elements + Nginx |
+| Product Service | 4001 | Products CRUD + Cart | Node.js/Express |
+| Order Service | 4002 | Orders + Payments + Auth + Analytics | Node.js/Express + Stripe SDK |
+
+---
+
+## Features
+
+### Customer Experience
+- **Product catalog** — 4-column grid, category filters, product detail modal
+- **Sales banner** — Live promotional banner with CTA
+- **Shopping cart** — Add/remove items, quantity display
+- **Checkout** — Name, email, phone, address + Stripe card payment
+- **My Orders** — Email-based login, order history with progress tracker (Ordered → Paid → Shipped → Delivered)
+- **Receipts** — Printable order receipts with full payment details
+- **Mobile responsive** — Hamburger menu with flyout navigation
+
+### Admin Panel (Protected)
+- **Login** — Username/password authentication (`admin` / `ShopEasy2026`)
+- **Dashboard** — Stats cards (Total Orders, Paid, Failed, Products Live)
+- **Grafana-style charts** — Revenue Over Time (area chart) + Revenue Breakdown (bar chart)
+- **Time range selector** — 10m, 1h, 4h, 6h, 12h, 1d, 3d
+- **Products CRUD** — Add/edit/delete products on dedicated form page
+- **Orders management** — Filter by status (All/Paid/Pending/Failed/Shipped/Delivered), update status
 
 ---
 
@@ -55,9 +72,8 @@ Step 2: Provisions AWS infra (VPC, ALB, ECS, RDS, ECR, CloudWatch Dashboard)
 Step 3: Builds Docker images (linux/amd64)
 Step 4: Pushes images to ECR
 Step 5: Runs db-init ECS task (loads schema + seed data)
-Step 6: Deploys 3 services to ECS Fargate
-Step 7: Waits for healthy deployment
-Step 8: Outputs ALB URL + Dashboard URL ✅
+Step 6: Deploys 3 services to ECS Fargate (sequential, 30s gaps)
+Step 7: Outputs ALB URL + Dashboard URL ✅
 ```
 
 ### Destroy
@@ -69,27 +85,31 @@ Same workflow → select `destroy` → all resources + state bucket deleted.
 ## Run Locally
 
 ```bash
-# Set Stripe test keys
-export STRIPE_SECRET_KEY=sk_test_your_key
-export REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_your_key
+# Set Stripe test keys in .env
+cat > .env << EOF
+STRIPE_SECRET_KEY=sk_test_your_key
+REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_your_key
+EOF
 
 docker compose up --build
 ```
 
 Open http://localhost:3000
 
-Test card: `4242 4242 4242 4242` | Any future expiry | Any CVC
+- **Admin Panel:** Click Admin → Login with `admin` / `ShopEasy2026`
+- **My Orders:** Click My Orders → Enter the email used during checkout
+- **Test card:** `4242 4242 4242 4242` | Any future expiry | Any CVC
 
 ---
 
 ## Test Cards (Stripe)
 
-| Card Number | Result | Dashboard Panel |
-|-------------|--------|-----------------|
-| `4242 4242 4242 4242` | Payment succeeds | ✅ Orders Booked |
-| `4000 0000 0000 0002` | Card declined | ❌ Orders Failed |
-| `4000 0000 0000 9995` | Insufficient funds | ❌ Orders Failed |
-| `4000 0000 0000 0069` | Expired card | ❌ Orders Failed |
+| Card Number | Result |
+|-------------|--------|
+| `4242 4242 4242 4242` | Payment succeeds ✅ |
+| `4000 0000 0000 0002` | Card declined ❌ |
+| `4000 0000 0000 9995` | Insufficient funds ❌ |
+| `4000 0000 0000 0069` | Expired card ❌ |
 
 ---
 
@@ -97,10 +117,11 @@ Test card: `4242 4242 4242 4242` | Any future expiry | Any CVC
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18, Stripe Elements, Nginx |
+| Frontend | React 18, Recharts, Stripe Elements, Nginx |
 | Backend | Node.js, Express, Stripe SDK |
 | Database | MySQL 8.0 (RDS) |
 | Payments | Stripe (test mode) |
+| Charts | Recharts (Grafana-style analytics) |
 | Monitoring | CloudWatch Dashboard + Logs Insights |
 | Containers | Docker, ECS Fargate |
 | Networking | VPC, ALB, NAT Gateway |
@@ -115,28 +136,59 @@ Test card: `4242 4242 4242 4242` | Any future expiry | Any CVC
 
 ```
 shop-easy/
-├── frontend/           # React SPA + Nginx
-├── product-service/    # Products + Cart API
-├── order-service/      # Orders + Payments API (structured logging)
+├── frontend/           # React SPA + Nginx (shop, admin, customer portal)
+├── product-service/    # Products CRUD + Cart API
+├── order-service/      # Orders + Payments + Auth + Analytics API
 ├── db-init/            # DB migration container (runs once)
 ├── database/           # SQL schema + seed data
 ├── terraform/          # AWS infra (VPC, ECS, RDS, ALB, CloudWatch)
 ├── .github/workflows/  # 1-click CI/CD pipeline
-├── docs/               # Architecture diagrams
+├── docs/               # Architecture diagrams + documentation
 ├── docker-compose.yml  # Local development
-└── DEPLOYMENT.md       # Manual deployment guide
+└── .env                # Local Stripe keys (gitignored)
 ```
+
+---
+
+## API Endpoints
+
+### Product Service (port 4001)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /products | List all products |
+| GET | /products/:id | Get product |
+| POST | /products | Create product (admin) |
+| PUT | /products/:id | Update product (admin) |
+| DELETE | /products/:id | Delete product (admin) |
+| GET | /cart/:userId | Get cart items |
+| POST | /cart | Add to cart |
+| DELETE | /cart/:id | Remove from cart |
+
+### Order Service (port 4002)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /auth/admin | Admin login |
+| GET | /orders/stats/summary | Dashboard stats |
+| GET | /orders/stats/timeseries | Chart data (query: ?minutes=60) |
+| GET | /orders/all | All orders (admin) |
+| GET | /orders/by-email/:email | Customer orders |
+| GET | /orders/:userId | User orders |
+| POST | /orders | Create order |
+| PUT | /orders/:id/status | Update order status (admin) |
+| POST | /payments/create-intent | Stripe payment intent |
+| POST | /payments/confirm | Confirm payment |
+| POST | /payments/failed | Log failed payment |
 
 ---
 
 ## User Flow
 
-1. **Browse Products** — View products with images, prices, category filters
-2. **Add to Cart** — Click "Add to Cart", badge updates
-3. **View Cart** — See items, quantities, total
-4. **Checkout** — Fill shipping details, enter card via Stripe
-5. **Payment** — Stripe processes card, order marked "paid"
-6. **Orders** — View past orders with status
+1. **Browse Products** — 4-col grid, category filters, sales banner
+2. **Add to Cart** — Click "Add", cart badge updates
+3. **Checkout** — Fill name, email, phone, address + card via Stripe
+4. **Payment** — Stripe processes, billing details sent to Stripe
+5. **My Orders** — Enter email → view orders with status tracker + receipts
+6. **Admin** — Login → Dashboard with charts → Manage products & orders
 
 ---
 
@@ -151,32 +203,14 @@ shop-easy/
 | ECR + S3 | ~$1 |
 | **Total** | **~$89/month** |
 
-> NAT Gateway enables proper private subnet architecture for ECS services.
-
 ---
 
 ## Monitoring (CloudWatch Dashboard)
 
-Auto-provisioned via Terraform — accessible at:
+Auto-provisioned via Terraform:
 ```
 https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=shop-easy-orders
 ```
-
-![Sales Dashboard](https://raw.githubusercontent.com/aniljadhavmca/shop-easy/feature/stripe-monitoring/docs/dashboard.png)
-
-### Dashboard Panels
-
-| Panel | Type | Shows |
-|-------|------|-------|
-| ✅ Orders Booked | Counter | Total successful payments |
-| ❌ Orders Failed | Counter | Total failed payments |
-| ⏳ Orders Pending | Counter | Orders awaiting payment |
-| 💰 Revenue Received | Counter | Total $ from paid orders |
-| 📊 Orders Over Time | Line chart | Booked vs Failed vs Pending (5min bins) |
-| 💰 Revenue Over Time | Bar chart | Hourly revenue |
-| 📋 Recent Events | Table | Last 50 order events with details |
-
-> Use CloudWatch time range selector (1h, 3h, 12h, 1d, 1w) to filter all panels.
 
 ### Structured Log Events
 
@@ -191,11 +225,12 @@ https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashbo
 
 ## Security
 
-- ECS tasks in **private subnets** — no public IPs, no direct internet exposure
-- RDS in **private subnets** (`publicly_accessible = false`) — only ECS can reach it
+- ECS tasks in **private subnets** — no public IPs
+- RDS in **private subnets** (`publicly_accessible = false`)
 - NAT Gateway provides outbound-only internet access (ECR pulls, Stripe API)
 - ALB is the only internet-facing resource (public subnets, port 80)
 - ECS security group allows inbound only from ALB
+- Admin panel protected by username/password authentication
 - DB password stored as GitHub Secret — never in code
 - Stripe keys stored as GitHub Secrets — never in code
 - Terraform state encrypted in S3 with versioning

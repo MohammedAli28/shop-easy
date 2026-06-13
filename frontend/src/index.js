@@ -9,6 +9,10 @@ const API = '';
 const USER_ID = 1;
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
 
+// Admin auth
+const ADMIN_TOKEN_KEY = 'shop_easy_admin';
+const CUSTOMER_KEY = 'shop_easy_customer';
+
 function CheckoutForm({ cart, cartTotal, shipping, onSuccess, onError }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -105,8 +109,16 @@ function App() {
   const [productForm, setProductForm] = useState({ name: '', description: '', price: '', image: '', category: '', stock: '' });
   const [productSearch, setProductSearch] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
+  const [mobileMenu, setMobileMenu] = useState(false);
+  // Auth
+  const [adminLoggedIn, setAdminLoggedIn] = useState(() => !!sessionStorage.getItem(ADMIN_TOKEN_KEY));
+  const [adminLogin, setAdminLogin] = useState({ username: '', password: '' });
+  const [customerEmail, setCustomerEmail] = useState(() => sessionStorage.getItem(CUSTOMER_KEY) || '');
+  const [customerOrders, setCustomerOrders] = useState([]);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
 
   useEffect(() => { fetchProducts(); fetchCart(); }, []);
+  useEffect(() => { if (customerEmail && page === 'myorders') fetchCustomerOrders(customerEmail); }, [page]);
 
   const fetchProducts = () => fetch(`${API}/products`).then(r => r.json()).then(setProducts).catch(() => {});
   const fetchCart = () => fetch(`${API}/cart/${USER_ID}`).then(r => r.json()).then(setCart).catch(() => {});
@@ -116,6 +128,23 @@ function App() {
   const fetchChartData = (mins) => fetch(`${API}/orders/stats/timeseries?minutes=${mins}`).then(r => r.json()).then(data => {
     setChartData(data.map(d => ({ ...d, time: new Date(d.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), paid: parseFloat(d.paid) || 0, failed: parseFloat(d.failed) || 0, pending: parseFloat(d.pending) || 0 })));
   }).catch(() => {});
+  const fetchCustomerOrders = (email) => fetch(`${API}/orders/by-email/${encodeURIComponent(email)}`).then(r => r.json()).then(setCustomerOrders).catch(() => {});
+
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    const res = await fetch(`${API}/auth/admin`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(adminLogin) });
+    const data = await res.json();
+    if (data.success) { sessionStorage.setItem(ADMIN_TOKEN_KEY, 'true'); setAdminLoggedIn(true); notify('✓ Admin logged in', 'success'); }
+    else { notify(data.error || 'Invalid credentials', 'error'); }
+  };
+  const handleAdminLogout = () => { sessionStorage.removeItem(ADMIN_TOKEN_KEY); setAdminLoggedIn(false); setPage('products'); };
+  const handleCustomerLogin = (e) => {
+    e.preventDefault();
+    if (!customerEmail) { notify('Please enter your email', 'warning'); return; }
+    sessionStorage.setItem(CUSTOMER_KEY, customerEmail);
+    fetchCustomerOrders(customerEmail);
+  };
+  const handleCustomerLogout = () => { sessionStorage.removeItem(CUSTOMER_KEY); setCustomerEmail(''); setCustomerOrders([]); setSelectedReceipt(null); };
 
   const notify = (msg, type = 'success') => { setNotification({ msg, type }); setTimeout(() => setNotification({ msg: '', type: '' }), 3000); };
 
@@ -178,15 +207,21 @@ function App() {
             <span className="logo-icon">🛍️</span>
             <span className="logo-text">ShopEasy</span>
           </div>
-          <nav>
-            <button className={page === 'products' ? 'active' : ''} onClick={() => setPage('products')}>
+          <button className="hamburger" onClick={() => setMobileMenu(!mobileMenu)}>
+            <span></span><span></span><span></span>
+          </button>
+          <nav className={mobileMenu ? 'nav-open' : ''}>
+            <button className={page === 'products' ? 'active' : ''} onClick={() => { setPage('products'); setMobileMenu(false); }}>
               <span>🏪</span> Shop
             </button>
-            <button className={page === 'cart' ? 'active' : ''} onClick={() => setPage('cart')}>
+            <button className={page === 'cart' ? 'active' : ''} onClick={() => { setPage('cart'); setMobileMenu(false); }}>
               <span>🛒</span> Cart
               {cart.length > 0 && <span className="badge">{cart.length}</span>}
             </button>
-            <button className={page === 'admin' ? 'active' : ''} onClick={() => { setPage('admin'); fetchAdminStats(); fetchAllOrders(); fetchProducts(); fetchChartData(timeRange); }}>
+            <button className={page === 'myorders' ? 'active' : ''} onClick={() => { setPage('myorders'); setMobileMenu(false); if (customerEmail) fetchCustomerOrders(customerEmail); }}>
+              <span>📦</span> My Orders
+            </button>
+            <button className={page === 'admin' ? 'active' : ''} onClick={() => { setPage('admin'); setMobileMenu(false); if (adminLoggedIn) { fetchAdminStats(); fetchAllOrders(); fetchProducts(); fetchChartData(timeRange); } }}>
               <span>⚙️</span> Admin
             </button>
           </nav>
@@ -198,8 +233,10 @@ function App() {
           <>
             <section className="hero">
               <div className="hero-content">
-                <h1>Discover Premium Tech</h1>
-                <p>Curated selection of the best gadgets & accessories</p>
+                <span className="hero-badge">🔥 Limited Time Offer</span>
+                <h1>Summer Sale — Up to 40% Off</h1>
+                <p>Free shipping on all orders over $99. Shop the best tech deals now!</p>
+                <button className="hero-cta" onClick={() => document.querySelector('.products-section').scrollIntoView({ behavior: 'smooth' })}>Shop Now →</button>
               </div>
             </section>
             <section className="products-section">
@@ -332,7 +369,143 @@ function App() {
           </div>
         )}
 
-        {page === 'admin' && (
+        {page === 'myorders' && (
+          <div className="page-container">
+            {!sessionStorage.getItem(CUSTOMER_KEY) ? (
+              <div className="auth-card">
+                <div className="auth-icon">📦</div>
+                <h3>Track Your Orders</h3>
+                <p>Enter the email you used during checkout to view order status and receipts</p>
+                <form onSubmit={handleCustomerLogin}>
+                  <div className="form-group">
+                    <label>Email Address</label>
+                    <input type="email" placeholder="john@example.com" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} required />
+                  </div>
+                  <button type="submit" className="checkout-btn">🔍 Find My Orders</button>
+                </form>
+              </div>
+            ) : selectedReceipt ? (
+              <div className="receipt-card">
+                <div className="receipt-header">
+                  <button className="admin-cancel-btn" onClick={() => setSelectedReceipt(null)}>← Back to Orders</button>
+                  <button className="admin-add-btn" onClick={() => window.print()}>🖨️ Print Receipt</button>
+                </div>
+                <div className="receipt-body" id="receipt-print">
+                  <div className="receipt-logo">🛒 ShopEasy</div>
+                  <h2>Order Receipt</h2>
+                  <div className="receipt-meta">
+                    <div><strong>Order #</strong>{selectedReceipt.id}</div>
+                    <div><strong>Date:</strong> {new Date(selectedReceipt.created_at).toLocaleDateString()}</div>
+                    <div><strong>Status:</strong> <span className={`status-badge ${selectedReceipt.status}`}>{selectedReceipt.status}</span></div>
+                  </div>
+                  <div className="receipt-section">
+                    <h4>Customer Details</h4>
+                    <p>{selectedReceipt.shipping_name}</p>
+                    <p>{selectedReceipt.shipping_email}</p>
+                    <p>{selectedReceipt.shipping_phone}</p>
+                    <p>{selectedReceipt.shipping_address}</p>
+                  </div>
+                  <div className="receipt-section">
+                    <h4>Payment Summary</h4>
+                    <div className="receipt-total">
+                      <span>Total Amount</span>
+                      <span className="receipt-amount">${parseFloat(selectedReceipt.total).toFixed(2)}</span>
+                    </div>
+                    <div className="receipt-total">
+                      <span>Payment Method</span>
+                      <span>Stripe (Card)</span>
+                    </div>
+                    <div className="receipt-total">
+                      <span>Payment Status</span>
+                      <span className={`status-badge ${selectedReceipt.status}`}>{selectedReceipt.status === 'paid' ? '✅ Paid' : selectedReceipt.status}</span>
+                    </div>
+                  </div>
+                  <div className="receipt-footer">
+                    <p>Thank you for shopping with ShopEasy!</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="myorders-header">
+                  <div>
+                    <h2>📦 My Orders</h2>
+                    <p className="myorders-email">Showing orders for <strong>{customerEmail}</strong></p>
+                  </div>
+                  <button className="logout-btn" onClick={handleCustomerLogout}>🔄 Change Email</button>
+                </div>
+                {customerOrders.length === 0 ? (
+                  <div className="empty-state">
+                    <span className="empty-icon">📦</span>
+                    <h3>No orders found</h3>
+                    <p>No orders found for this email address</p>
+                    <button className="shop-btn" onClick={() => setPage('products')}>Start Shopping</button>
+                  </div>
+                ) : (
+                  <div className="orders-list">
+                    {customerOrders.map(o => (
+                      <div key={o.id} className="order-card-v2">
+                        <div className="order-card-left">
+                          <div className="order-card-id">
+                            <span className="order-hash">#{o.id}</span>
+                            <span className={`status-badge ${o.status}`}>{o.status}</span>
+                          </div>
+                          <div className="order-card-details">
+                            <span>📅 {new Date(o.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                            <span>👤 {o.shipping_name}</span>
+                          </div>
+                        </div>
+                        <div className="order-card-right">
+                          <span className="order-card-amount">${parseFloat(o.total).toFixed(2)}</span>
+                          <button className="receipt-btn" onClick={() => setSelectedReceipt(o)}>🧾 Receipt</button>
+                        </div>
+                        <div className="order-card-progress">
+                          <div className={`progress-step ${['pending','paid','shipped','delivered'].indexOf(o.status) >= 0 ? 'active' : ''}`}>
+                            <div className="progress-dot"></div><span>Ordered</span>
+                          </div>
+                          <div className={`progress-line ${['paid','shipped','delivered'].includes(o.status) ? 'active' : ''}`}></div>
+                          <div className={`progress-step ${['paid','shipped','delivered'].includes(o.status) ? 'active' : ''} ${o.status === 'failed' ? 'failed' : ''}`}>
+                            <div className="progress-dot"></div><span>{o.status === 'failed' ? 'Failed' : 'Paid'}</span>
+                          </div>
+                          <div className={`progress-line ${['shipped','delivered'].includes(o.status) ? 'active' : ''}`}></div>
+                          <div className={`progress-step ${['shipped','delivered'].includes(o.status) ? 'active' : ''}`}>
+                            <div className="progress-dot"></div><span>Shipped</span>
+                          </div>
+                          <div className={`progress-line ${o.status === 'delivered' ? 'active' : ''}`}></div>
+                          <div className={`progress-step ${o.status === 'delivered' ? 'active' : ''}`}>
+                            <div className="progress-dot"></div><span>Delivered</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {page === 'admin' && !adminLoggedIn && (
+          <div className="page-container">
+            <div className="auth-card">
+              <h3>🔐 Admin Login</h3>
+              <p>Enter your admin credentials</p>
+              <form onSubmit={handleAdminLogin}>
+                <div className="form-group">
+                  <label>Username</label>
+                  <input type="text" placeholder="admin" value={adminLogin.username} onChange={e => setAdminLogin({...adminLogin, username: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label>Password</label>
+                  <input type="password" placeholder="••••••••" value={adminLogin.password} onChange={e => setAdminLogin({...adminLogin, password: e.target.value})} required />
+                </div>
+                <button type="submit" className="checkout-btn">Login</button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {page === 'admin' && adminLoggedIn && (
           <div className="admin-wrapper">
             <aside className="admin-sidebar">
               <div className="admin-sidebar-header">
@@ -352,6 +525,9 @@ function App() {
               </nav>
               <button className="admin-back-btn" onClick={() => setPage('products')}>
                 ← Back to Store
+              </button>
+              <button className="admin-back-btn admin-logout-btn" onClick={handleAdminLogout}>
+                🚪 Logout
               </button>
             </aside>
             <div className="admin-content">
@@ -375,28 +551,28 @@ function App() {
                   <p className="admin-subtitle">Overview of your store</p>
                   <div className="stats-grid">
                     <div className="stat-card stat-purple">
-                      <span className="stat-icon">📃</span>
+                      <span className="stat-icon">📊</span>
                       <div className="stat-info">
                         <span className="stat-value">{adminStats.total_orders || 0}</span>
                         <span className="stat-label">Total Orders</span>
                       </div>
                     </div>
                     <div className="stat-card stat-green">
-                      <span className="stat-icon">✅</span>
+                      <span className="stat-icon">💰</span>
                       <div className="stat-info">
                         <span className="stat-value">{adminStats.paid_orders || 0}</span>
                         <span className="stat-label">Paid</span>
                       </div>
                     </div>
                     <div className="stat-card stat-red">
-                      <span className="stat-icon">❌</span>
+                      <span className="stat-icon">🚨</span>
                       <div className="stat-info">
                         <span className="stat-value">{adminStats.failed_orders || 0}</span>
                         <span className="stat-label">Failed</span>
                       </div>
                     </div>
                     <div className="stat-card stat-blue">
-                      <span className="stat-icon">🛒</span>
+                      <span className="stat-icon">🚀</span>
                       <div className="stat-info">
                         <span className="stat-value">{products.length}</span>
                         <span className="stat-label">Products Live</span>
@@ -641,7 +817,8 @@ function App() {
             <h4>Quick Links</h4>
             <a href="#!" onClick={() => setPage('products')}>Products</a>
             <a href="#!" onClick={() => setPage('cart')}>Cart</a>
-            <a href="#!" onClick={() => { setPage('admin'); fetchAdminStats(); fetchAllOrders(); fetchProducts(); fetchChartData(timeRange); }}>Admin</a>
+            <a href="#!" onClick={() => setPage('myorders')}>My Orders</a>
+            <a href="#!" onClick={() => { setPage('admin'); if (adminLoggedIn) { fetchAdminStats(); fetchAllOrders(); fetchProducts(); fetchChartData(timeRange); } }}>Admin</a>
           </div>
           <div className="footer-links">
             <h4>Built With</h4>

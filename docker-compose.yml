@@ -36,6 +36,8 @@ services:
       DB_PASSWORD: password
       DB_NAME: shop_easy
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ShopEasy2026}
     depends_on:
       db: { condition: service_healthy }
 

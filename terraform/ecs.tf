@@ -97,7 +97,9 @@ resource "aws_ecs_task_definition" "order" {
       { name = "DB_USER", value = "admin" },
       { name = "DB_PASSWORD", value = var.db_password },
       { name = "DB_NAME", value = "shop_easy" },
-      { name = "STRIPE_SECRET_KEY", value = var.stripe_secret_key }
+      { name = "STRIPE_SECRET_KEY", value = var.stripe_secret_key },
+      { name = "ADMIN_USERNAME", value = "admin" },
+      { name = "ADMIN_PASSWORD", value = "ShopEasy2026" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
