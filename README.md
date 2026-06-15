@@ -23,21 +23,12 @@
 ## Features
 
 ### Customer Experience
-- **Hero banner** — Dark gradient with promotional text and CTA buttons
-- **Category navigation** — Flipkart-style icon strip with arrow navigation (scrollable)
-- **Product catalog** — 4-column grid, star ratings, category filters
-- **Search** — Real-time search by product name or category
-- **Hot Deals** — 4 random products with SALE badge and strikethrough pricing
-- **Trending slider** — Auto-scrolling product carousel
-- **Product detail modal** — Full description, ratings, customer reviews (Flipkart-style)
-- **Shopping cart** — Add/remove items, quantity display
-- **Checkout** — Name, email, phone, address + Stripe card payment (billing details sent to Stripe)
-- **My Orders** — Email-based login, order history with progress tracker (Ordered → Paid → Shipped → Delivered)
-- **Receipts** — Printable order receipts with full payment details
-- **Trust bar** — Free Shipping, Secure Payment, Easy Returns, Top Quality
-- **Promo banner** — Flash deal promotional section
-- **Mobile responsive** — Hamburger menu with flyout navigation
-- **Back to top** — Floating button on scroll
+- Hero banner, category navigation (Flipkart-style scrollable icons)
+- Product catalog — 4-column grid, star ratings, search by name/category
+- Hot Deals, Trending slider, product detail modal with reviews
+- Shopping cart → Checkout (name, email, phone, address + Stripe)
+- My Orders — Email login, order progress tracker, printable receipts
+- Trust bar, promo banner, mobile responsive (hamburger menu), back to top
 
 ### Admin Panel (Protected — no header, full-screen layout)
 - **Login** — Username/password authentication (`admin` / `ShopEasy2026`)
@@ -223,21 +214,9 @@ shop-easy/
 
 ---
 
-## Default Categories (11)
+## Default Categories
 
-| Category | Icon |
-|----------|------|
-| Mobile | 📱 |
-| Laptop | 💻 |
-| Television | 📺 |
-| Earpods | 🎧 |
-| Kitchen | 🍳 |
-| Accessories | ⌚ |
-| Cameras | 📷 |
-| Fans | 🌀 |
-| Grooming | 💈 |
-| Storage | 💾 |
-| Air Conditioners | ❄️ |
+Mobile, Laptop, Television, Earpods, Kitchen, Accessories, Cameras, Fans, Grooming, Storage, Air Conditioners (11 total — manageable from admin panel)
 
 ---
 
