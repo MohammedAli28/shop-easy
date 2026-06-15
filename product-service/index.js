@@ -22,6 +22,29 @@ app.get('/health', async (req, res) => {
   catch { res.status(503).json({ status: 'unhealthy' }); }
 });
 
+// ─── Categories ───
+app.get('/categories', async (req, res) => {
+  try { const [rows] = await pool.query('SELECT * FROM categories ORDER BY name'); res.json(rows); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/categories', async (req, res) => {
+  try {
+    const { name, icon } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const [result] = await pool.query('INSERT INTO categories (name, icon) VALUES (?, ?)', [name, icon || '📦']);
+    res.status(201).json({ id: result.insertId, name, icon: icon || '📦' });
+  } catch (e) {
+    if (e.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Category already exists' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/categories/:id', async (req, res) => {
+  try { await pool.query('DELETE FROM categories WHERE id = ?', [req.params.id]); res.status(204).end(); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Products ───
 app.get('/products', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM products'); res.json(rows); }

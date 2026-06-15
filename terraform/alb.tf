@@ -84,7 +84,7 @@ resource "aws_lb_listener_rule" "products" {
 
   condition {
     path_pattern {
-      values = ["/products*", "/cart*"]
+      values = ["/products*", "/cart*", "/categories*"]
     }
   }
 }

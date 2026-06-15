@@ -90,6 +90,27 @@ function CheckoutForm({ cart, cartTotal, shipping, onSuccess, onError }) {
   );
 }
 
+function CountdownTimer() {
+  const [time, setTime] = useState({ h: 5, m: 42, s: 17 });
+  useEffect(() => {
+    const t = setInterval(() => setTime(prev => {
+      let { h, m, s } = prev;
+      if (s > 0) s--; else { s = 59; if (m > 0) m--; else { m = 59; if (h > 0) h--; } }
+      return { h, m, s };
+    }), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="countdown">
+      <div className="countdown-box"><span>{String(time.h).padStart(2,'0')}</span><small>HRS</small></div>
+      <span className="countdown-sep">:</span>
+      <div className="countdown-box"><span>{String(time.m).padStart(2,'0')}</span><small>MIN</small></div>
+      <span className="countdown-sep">:</span>
+      <div className="countdown-box"><span>{String(time.s).padStart(2,'0')}</span><small>SEC</small></div>
+    </div>
+  );
+}
+
 function App() {
   const [page, setPage] = useState('products');
   const [products, setProducts] = useState([]);
@@ -110,6 +131,11 @@ function App() {
   const [productSearch, setProductSearch] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showBackTop, setShowBackTop] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState({ name: '', icon: '' });
   // Auth
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => !!sessionStorage.getItem(ADMIN_TOKEN_KEY));
   const [adminLogin, setAdminLogin] = useState({ username: '', password: '' });
@@ -117,11 +143,17 @@ function App() {
   const [customerOrders, setCustomerOrders] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 
-  useEffect(() => { fetchProducts(); fetchCart(); }, []);
+  useEffect(() => { fetchProducts(); fetchCart(); fetchCategories(); }, []);
   useEffect(() => { if (customerEmail && page === 'myorders') fetchCustomerOrders(customerEmail); }, [page]);
+  useEffect(() => {
+    const handleScroll = () => setShowBackTop(window.scrollY > 400);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-  const fetchProducts = () => fetch(`${API}/products`).then(r => r.json()).then(setProducts).catch(() => {});
+  const fetchProducts = () => fetch(`${API}/products`).then(r => r.json()).then(d => { setProducts(d); setLoading(false); }).catch(() => setLoading(false));
   const fetchCart = () => fetch(`${API}/cart/${USER_ID}`).then(r => r.json()).then(setCart).catch(() => {});
+  const fetchCategories = () => fetch(`${API}/categories`).then(r => r.json()).then(setCategories).catch(() => {});
   const fetchOrders = () => fetch(`${API}/orders/${USER_ID}`).then(r => r.json()).then(setOrders).catch(() => {});
   const fetchAdminStats = () => fetch(`${API}/orders/stats/summary`).then(r => r.json()).then(setAdminStats).catch(() => {});
   const fetchAllOrders = () => fetch(`${API}/orders/all`).then(r => r.json()).then(setAllOrders).catch(() => {});
@@ -170,7 +202,10 @@ function App() {
     <div className="app">
       {notification.msg && <div className={`notification ${notification.type}`}>{notification.msg}</div>}
 
-      {selectedProduct && (
+      {selectedProduct && (() => {
+        const prodRating = (3.5 + (selectedProduct.id * 0.3) % 1.5).toFixed(1);
+        const prodReviews = 120 + selectedProduct.id * 37;
+        return (
         <div className="modal-overlay" onClick={() => setSelectedProduct(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setSelectedProduct(null)}>✕</button>
@@ -181,6 +216,10 @@ function App() {
               <div className="modal-details">
                 <span className="category">{selectedProduct.category}</span>
                 <h2>{selectedProduct.name}</h2>
+                <div className="modal-rating">
+                  <span className="stars">{'★'.repeat(Math.floor(prodRating))}{'☆'.repeat(5 - Math.floor(prodRating))}</span>
+                  <span className="rating-text">{prodRating} ({prodReviews} reviews)</span>
+                </div>
                 <p className="modal-description">{selectedProduct.description}</p>
                 <div className="modal-meta">
                   <span className="modal-stock">{selectedProduct.stock > 0 ? `✓ ${selectedProduct.stock} in stock` : '✕ Out of stock'}</span>
@@ -197,15 +236,53 @@ function App() {
                 </div>
               </div>
             </div>
+            <div className="modal-reviews-section">
+              <div className="reviews-header">
+                <h3>Ratings & Reviews</h3>
+                <div className="reviews-summary">
+                  <span className="reviews-big-rating">{prodRating}</span>
+                  <div>
+                    <span className="stars">{'★'.repeat(Math.floor(prodRating))}{'☆'.repeat(5 - Math.floor(prodRating))}</span>
+                    <span className="reviews-count">{prodReviews} ratings</span>
+                  </div>
+                </div>
+              </div>
+              <div className="reviews-list">
+                {[
+                  { name: 'Sarah Mitchell', rating: 5, text: 'Absolutely love this product! Exceeded my expectations. The build quality is premium and delivery was super fast. Highly recommended!', date: '2 days ago', verified: true },
+                  { name: 'James Kumar', rating: 4, text: 'Great quality for the price. Works exactly as described. Only giving 4 stars because packaging could be better.', date: '1 week ago', verified: true },
+                  { name: 'Priya Sharma', rating: 5, text: 'Perfect! Exactly as described. Already ordered another one as a gift for my brother. Amazing value for money.', date: '2 weeks ago', verified: true },
+                  { name: 'David Chen', rating: 4, text: 'Good product overall. Fast shipping and good customer support when I had questions.', date: '3 weeks ago', verified: false },
+                ].map((r, i) => (
+                  <div key={i} className="review-card">
+                    <div className="review-top">
+                      <span className={`review-rating-badge ${r.rating >= 4 ? 'green' : 'orange'}`}>{r.rating}★</span>
+                      <span className="review-title">{r.rating === 5 ? 'Excellent' : 'Very Good'}</span>
+                    </div>
+                    <p className="review-text">{r.text}</p>
+                    <div className="review-bottom">
+                      <span className="review-author">{r.name}</span>
+                      {r.verified && <span className="review-verified">✓ Verified Purchase</span>}
+                      <span className="review-date">{r.date}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      )}
+        );
+      })()}
       
       <header className="header">
         <div className="header-inner">
           <div className="logo" onClick={() => setPage('products')}>
             <span className="logo-icon">🛍️</span>
             <span className="logo-text">ShopEasy</span>
+          </div>
+          <div className="header-search">
+            <input type="text" placeholder="What are you looking for?" value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setActiveFilter('All'); setPage('products'); }} />
           </div>
           <button className="hamburger" onClick={() => setMobileMenu(!mobileMenu)}>
             <span></span><span></span><span></span>
@@ -233,11 +310,80 @@ function App() {
           <>
             <section className="hero">
               <div className="hero-content">
-                <span className="hero-badge">🔥 Limited Time Offer</span>
-                <h1>Summer Sale — Up to 40% Off</h1>
-                <p>Free shipping on all orders over $99. Shop the best tech deals now!</p>
-                <button className="hero-cta" onClick={() => document.querySelector('.products-section').scrollIntoView({ behavior: 'smooth' })}>Shop Now →</button>
+                <div className="hero-text">
+                  <span className="hero-badge">✨ Summer Sale — Up to 40% Off</span>
+                  <h1>Shop Easy - Shopping Made Effortless.</h1>
+                  <p className="hero-subtitle">Premium gadgets, unbeatable prices. From top brands you love — delivered to your door.</p>
+                  <div className="hero-buttons">
+                    <button className="hero-cta" onClick={() => document.querySelector('.products-section').scrollIntoView({ behavior: 'smooth' })}>Shop Now</button>
+                    <button className="hero-cta-secondary" onClick={() => document.querySelector('.hot-deals').scrollIntoView({ behavior: 'smooth' })}>View Deals</button>
+                  </div>
+                </div>
               </div>
+            </section>
+
+            <section className="category-strip">
+              <div className="category-strip-inner">
+                <div className={`category-item ${activeFilter === 'All' ? 'active' : ''}`} onClick={() => setActiveFilter('All')}>
+                  <div className="cat-icon-wrap"><img src="https://img.icons8.com/fluency/64/apps-tab.png" alt="All" /></div>
+                  <span>All</span>
+                </div>
+                {categories.map(c => {
+                  const icons = { 'Mobile': 'https://img.icons8.com/fluency/64/iphone.png', 'Laptop': 'https://img.icons8.com/fluency/64/laptop.png', 'Television': 'https://img.icons8.com/fluency/64/tv.png', 'Earpods': 'https://img.icons8.com/fluency/64/headphones.png', 'Kitchen': 'https://img.icons8.com/fluency/64/cooking-pot.png', 'Accessories': 'https://img.icons8.com/fluency/64/apple-watch.png', 'Cameras': 'https://img.icons8.com/fluency/64/camera.png', 'Fans': 'https://img.icons8.com/fluency/64/fan.png', 'Grooming': 'https://img.icons8.com/fluency/64/barber-scissors.png', 'Storage': 'https://img.icons8.com/fluency/64/ssd.png', 'Air Conditioners': 'https://img.icons8.com/fluency/64/air-conditioner.png' };
+                  return (
+                  <div key={c.id} className={`category-item ${activeFilter === c.name ? 'active' : ''}`} onClick={() => setActiveFilter(c.name)}>
+                    <div className="cat-icon-wrap"><img src={icons[c.name] || 'https://cdn-icons-png.flaticon.com/64/3652/3652191.png'} alt={c.name} /></div>
+                    <span>{c.name}</span>
+                  </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="products-section">
+              <div className="section-header">
+                <h2>{activeFilter === 'All' ? 'Featured Products' : activeFilter}</h2>
+                <span className="product-count">{products.filter(p => (activeFilter === 'All' || p.category === activeFilter) && (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))).length} items</span>
+              </div>
+              {loading ? (
+                <div className="loading-spinner"><div className="spinner"></div><p>Loading products...</p></div>
+              ) : products.filter(p => (activeFilter === 'All' || p.category === activeFilter) && (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 ? (
+                <div className="empty-category"><p>No products available in this category yet.</p></div>
+              ) : (
+              <div className="products-grid">
+                {products.filter(p => (activeFilter === 'All' || p.category === activeFilter) && (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))).map(p => {
+                  const rating = (3.5 + (p.id * 0.3) % 1.5).toFixed(1);
+                  const reviews = 50 + (p.id * 47) % 400;
+                  return (
+                  <div key={p.id} className="product-card" onClick={() => setSelectedProduct(p)}>
+                    <div className="product-image">
+                      <img src={p.image} alt={p.name} />
+                      {p.stock < 10 && <span className="low-stock">Few left</span>}
+                    </div>
+                    <div className="product-info">
+                      <span className="category">{p.category}</span>
+                      <h3>{p.name}</h3>
+                      <div className="star-rating">
+                        <span className="stars">{'\u2605'.repeat(Math.floor(rating))}{'\u2606'.repeat(5 - Math.floor(rating))}</span>
+                        <span className="rating-text">{rating} ({reviews})</span>
+                      </div>
+                      <p className="description">{p.description}</p>
+                      <div className="product-footer">
+                        <div className="price-tag">
+                          <span className="currency">$</span>
+                          <span className="amount">{Math.floor(p.price)}</span>
+                          <span className="cents">.{(p.price % 1).toFixed(2).slice(2)}</span>
+                        </div>
+                        <button className="add-btn" onClick={(e) => { e.stopPropagation(); addToCart(p.id); }} disabled={p.stock === 0}>
+                          {p.stock === 0 ? 'Sold Out' : '+ Add'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+              )}
             </section>
 
             {products.length > 0 && (
@@ -287,51 +433,6 @@ function App() {
                 </div>
               </section>
             )}
-
-            <section className="products-section">
-              <div className="section-header">
-                <h2>Featured Products</h2>
-                <span className="product-count">{products.filter(p => activeFilter === 'All' || p.category === activeFilter).length} items</span>
-              </div>
-              <div className="filter-bar">
-                {['All', ...new Set(products.map(p => p.category))].map(cat => (
-                  <button key={cat} className={`filter-btn ${activeFilter === cat ? 'active' : ''}`} onClick={() => setActiveFilter(cat)}>{cat}</button>
-                ))}
-              </div>
-              <div className="products-grid">
-                {products.filter(p => activeFilter === 'All' || p.category === activeFilter).map(p => {
-                  const rating = (3.5 + (p.id * 0.3) % 1.5).toFixed(1);
-                  const reviews = 50 + (p.id * 47) % 400;
-                  return (
-                  <div key={p.id} className="product-card" onClick={() => setSelectedProduct(p)}>
-                    <div className="product-image">
-                      <img src={p.image} alt={p.name} />
-                      {p.stock < 10 && <span className="low-stock">Few left</span>}
-                    </div>
-                    <div className="product-info">
-                      <span className="category">{p.category}</span>
-                      <h3>{p.name}</h3>
-                      <div className="star-rating">
-                        <span className="stars">{'\u2605'.repeat(Math.floor(rating))}{'\u2606'.repeat(5 - Math.floor(rating))}</span>
-                        <span className="rating-text">{rating} ({reviews})</span>
-                      </div>
-                      <p className="description">{p.description}</p>
-                      <div className="product-footer">
-                        <div className="price-tag">
-                          <span className="currency">$</span>
-                          <span className="amount">{Math.floor(p.price)}</span>
-                          <span className="cents">.{(p.price % 1).toFixed(2).slice(2)}</span>
-                        </div>
-                        <button className="add-btn" onClick={(e) => { e.stopPropagation(); addToCart(p.id); }} disabled={p.stock === 0}>
-                          {p.stock === 0 ? 'Sold Out' : '+ Add'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
-            </section>
 
             <section className="trust-bar">
               <div className="trust-item"><span className="trust-icon">🚚</span><div><strong>Free Shipping</strong><p>On orders over $99</p></div></div>
@@ -591,6 +692,9 @@ function App() {
                 <button className={adminPage === 'products' ? 'active' : ''} onClick={() => { setAdminPage('products'); fetchProducts(); }}>
                   <span>📦</span> Products
                 </button>
+                <button className={adminPage === 'categories' ? 'active' : ''} onClick={() => { setAdminPage('categories'); fetchCategories(); fetchProducts(); }} style={{paddingLeft: '36px', fontSize: '0.82rem'}}>
+                  <span>🏷️</span> Categories
+                </button>
                 <button className={adminPage === 'orders' ? 'active' : ''} onClick={() => { setAdminPage('orders'); fetchAllOrders(); }}>
                   <span>📃</span> Orders
                 </button>
@@ -811,7 +915,7 @@ function App() {
                     }}>
                       <div className="admin-form-grid">
                         <div className="form-group"><label>Name *</label><input type="text" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} placeholder="Product name" /></div>
-                        <div className="form-group"><label>Category</label><input type="text" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})} placeholder="Electronics" /></div>
+                        <div className="form-group"><label>Category</label><select value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})} className="form-select"><option value="">Select category</option>{categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
                         <div className="form-group"><label>Price ($) *</label><input type="number" step="0.01" value={productForm.price} onChange={e => setProductForm({...productForm, price: e.target.value})} placeholder="99.99" /></div>
                         <div className="form-group"><label>Stock</label><input type="number" value={productForm.stock} onChange={e => setProductForm({...productForm, stock: e.target.value})} placeholder="100" /></div>
                       </div>
@@ -874,6 +978,52 @@ function App() {
                   </div>
                 </div>
               )}
+
+              {adminPage === 'categories' && (
+                <div className="admin-categories">
+                  <div className="admin-page-header">
+                    <div>
+                      <h2>Categories</h2>
+                      <p className="admin-subtitle">{categories.length} categories</p>
+                    </div>
+                  </div>
+                  <div className="admin-section">
+                    <h3>➕ Add New Category</h3>
+                    <form className="category-form" onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!newCategory.name) { notify('Category name required', 'warning'); return; }
+                      const res = await fetch(`${API}/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newCategory) });
+                      if (res.ok) { setNewCategory({ name: '', icon: '' }); fetchCategories(); notify('✓ Category added!', 'success'); }
+                      else { const d = await res.json(); notify(d.error || 'Failed', 'error'); }
+                    }}>
+                      <input type="text" placeholder="Category name" value={newCategory.name} onChange={e => setNewCategory({...newCategory, name: e.target.value})} />
+                      <button type="submit" className="admin-save-btn">Add Category</button>
+                    </form>
+                  </div>
+                  <div className="admin-section">
+                    <h3>All Categories</h3>
+                    <div className="admin-table-wrapper">
+                      <table className="admin-table">
+                        <thead><tr><th>Name</th><th>Products</th><th>Actions</th></tr></thead>
+                        <tbody>
+                          {categories.map(c => {
+                            const count = products.filter(p => p.category === c.name).length;
+                            return (
+                            <tr key={c.id}>
+                              <td><strong>{c.name}</strong></td>
+                              <td><span className="admin-category-badge" style={{cursor:'pointer'}} onClick={() => { setAdminPage('products'); setProductSearch(c.name); }}>{count} product{count !== 1 ? 's' : ''}</span></td>
+                              <td className="admin-actions-cell">
+                                <button className="admin-delete-btn" onClick={async () => { if (window.confirm(`Delete "${c.name}"? Products in this category won't be deleted.`)) { await fetch(`${API}/categories/${c.id}`, { method: 'DELETE' }); fetchCategories(); notify('Deleted', 'success'); } }}>🗑️</button>
+                              </td>
+                            </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -901,15 +1051,16 @@ function App() {
             </div>
           </div>
           <div className="footer-bottom">
-            <p>© 2024 ShopEasy. All rights reserved. Proudly built by <strong>Anil Jadhav</strong></p>
+            <p>© 2026 ShopEasy. All rights reserved. Proudly built by <strong>Anil Jadhav</strong></p>
           </div>
         </footer>
       )}
       {page === 'admin' && (
         <div className="admin-footer">
-          <p>© 2024 ShopEasy. Proudly built by <strong>Anil Jadhav</strong></p>
+          <p>© 2026 ShopEasy. Proudly built by <strong>Anil Jadhav</strong></p>
         </div>
       )}
+      {showBackTop && <button className="back-to-top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>↑</button>}
     </div>
   );
 }
