@@ -282,7 +282,7 @@ function App() {
           </div>
           <div className="header-search">
             <input type="text" placeholder="What are you looking for?" value={searchQuery}
-              onChange={e => { setSearchQuery(e.target.value); setActiveFilter('All'); setPage('products'); }} />
+              onChange={e => { setSearchQuery(e.target.value); }} />
           </div>
           <button className="hamburger" onClick={() => setMobileMenu(!mobileMenu)}>
             <span></span><span></span><span></span>
@@ -324,14 +324,14 @@ function App() {
 
             <section className="category-strip">
               <div className="category-strip-inner">
-                <div className={`category-item ${activeFilter === 'All' ? 'active' : ''}`} onClick={() => setActiveFilter('All')}>
+                <div className={`category-item ${activeFilter === 'All' ? 'active' : ''}`} onClick={() => { setActiveFilter('All'); setSearchQuery(''); }}>
                   <div className="cat-icon-wrap"><img src="https://img.icons8.com/fluency/64/apps-tab.png" alt="All" /></div>
                   <span>All</span>
                 </div>
                 {categories.map(c => {
                   const icons = { 'Mobile': 'https://img.icons8.com/fluency/64/iphone.png', 'Laptop': 'https://img.icons8.com/fluency/64/laptop.png', 'Television': 'https://img.icons8.com/fluency/64/tv.png', 'Earpods': 'https://img.icons8.com/fluency/64/headphones.png', 'Kitchen': 'https://img.icons8.com/fluency/64/cooking-pot.png', 'Accessories': 'https://img.icons8.com/fluency/64/apple-watch.png', 'Cameras': 'https://img.icons8.com/fluency/64/camera.png', 'Fans': 'https://img.icons8.com/fluency/64/fan.png', 'Grooming': 'https://img.icons8.com/fluency/64/barber-scissors.png', 'Storage': 'https://img.icons8.com/fluency/64/ssd.png', 'Air Conditioners': 'https://img.icons8.com/fluency/64/air-conditioner.png' };
                   return (
-                  <div key={c.id} className={`category-item ${activeFilter === c.name ? 'active' : ''}`} onClick={() => setActiveFilter(c.name)}>
+                  <div key={c.id} className={`category-item ${activeFilter === c.name ? 'active' : ''}`} onClick={() => { setActiveFilter(c.name); setSearchQuery(''); }}>
                     <div className="cat-icon-wrap"><img src={icons[c.name] || 'https://cdn-icons-png.flaticon.com/64/3652/3652191.png'} alt={c.name} /></div>
                     <span>{c.name}</span>
                   </div>
@@ -343,15 +343,15 @@ function App() {
             <section className="products-section">
               <div className="section-header">
                 <h2>{activeFilter === 'All' ? 'Featured Products' : activeFilter}</h2>
-                <span className="product-count">{products.filter(p => (activeFilter === 'All' || p.category === activeFilter) && (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))).length} items</span>
+                <span className="product-count">{products.filter(p => (activeFilter === 'All' || p.category === activeFilter) && (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase()))).length} items</span>
               </div>
               {loading ? (
                 <div className="loading-spinner"><div className="spinner"></div><p>Loading products...</p></div>
-              ) : products.filter(p => (activeFilter === 'All' || p.category === activeFilter) && (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 ? (
+              ) : products.filter(p => (activeFilter === 'All' || p.category === activeFilter) && (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 ? (
                 <div className="empty-category"><p>No products available in this category yet.</p></div>
               ) : (
               <div className="products-grid">
-                {products.filter(p => (activeFilter === 'All' || p.category === activeFilter) && (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))).map(p => {
+                {products.filter(p => (activeFilter === 'All' || p.category === activeFilter) && (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase()))).map(p => {
                   const rating = (3.5 + (p.id * 0.3) % 1.5).toFixed(1);
                   const reviews = 50 + (p.id * 47) % 400;
                   return (
