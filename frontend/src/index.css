@@ -112,8 +112,19 @@ nav button.active { color: #7c2d35; background: #fdf2f2; font-weight: 600; }
 .back-to-top:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(99,102,241,0.5); }
 
 /* ─── Products ─── */
-.category-strip { padding: 24px 0; margin-bottom: 32px; }
-.category-strip-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; gap: 10px; overflow-x: auto; justify-content: center; }
+.category-strip { padding: 24px 0; margin-bottom: 32px; position: relative; max-width: 1200px; margin-left: auto; margin-right: auto; }
+.category-strip-inner { padding: 0 50px; display: flex; gap: 10px; overflow-x: auto; scroll-behavior: smooth; scrollbar-width: none; }
+.category-strip-inner::-webkit-scrollbar { display: none; }
+.cat-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 36px; height: 36px;
+  border-radius: 50%; background: white; border: 1px solid #e5e7eb; cursor: pointer;
+  font-size: 1.4rem; display: flex; align-items: center; justify-content: center;
+  color: #374151; z-index: 2; transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.cat-arrow:hover { background: #f9fafb; box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.cat-arrow-left { left: 8px; }
+.cat-arrow-right { right: 8px; }
 .category-item {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   padding: 14px 14px 10px; border-radius: 14px; cursor: pointer; transition: all 0.2s;

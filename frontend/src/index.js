@@ -324,6 +324,7 @@ function App() {
             </section>
 
             <section className="category-strip">
+              <button className="cat-arrow cat-arrow-left" onClick={() => { const el = document.querySelector('.category-strip-inner'); el.scrollBy({ left: -200, behavior: 'smooth' }); }}>‹</button>
               <div className="category-strip-inner">
                 <div className={`category-item ${activeFilter === 'All' ? 'active' : ''}`} onClick={() => { setActiveFilter('All'); setSearchQuery(''); }}>
                   <div className="cat-icon-wrap"><img src="https://img.icons8.com/fluency/64/apps-tab.png" alt="All" /></div>
@@ -338,6 +339,7 @@ function App() {
                   );
                 })}
               </div>
+              <button className="cat-arrow cat-arrow-right" onClick={() => { const el = document.querySelector('.category-strip-inner'); el.scrollBy({ left: 200, behavior: 'smooth' }); }}>›</button>
             </section>
 
             <section className="products-section">
