@@ -136,6 +136,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState({ name: '', icon: '', image: '' });
+  const [editingCategory, setEditingCategory] = useState(null);
   // Auth
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => !!sessionStorage.getItem(ADMIN_TOKEN_KEY));
   const [adminLogin, setAdminLogin] = useState({ username: '', password: '' });
@@ -274,7 +275,7 @@ function App() {
         );
       })()}
       
-      <header className="header">
+      {page !== 'admin' && <header className="header">
         <div className="header-inner">
           <div className="logo" onClick={() => setPage('products')}>
             <span className="logo-icon">🛍️</span>
@@ -303,7 +304,7 @@ function App() {
             </button>
           </nav>
         </div>
-      </header>
+      </header>}
 
       <main>
         {page === 'products' && (
@@ -987,17 +988,23 @@ function App() {
                     </div>
                   </div>
                   <div className="admin-section">
-                    <h3>➕ Add New Category</h3>
+                    <h3>{editingCategory ? '✏️ Edit Category' : '➕ Add New Category'}</h3>
                     <form className="category-form" onSubmit={async (e) => {
                       e.preventDefault();
-                      if (!newCategory.name) { notify('Category name required', 'warning'); return; }
-                      const res = await fetch(`${API}/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newCategory) });
-                      if (res.ok) { setNewCategory({ name: '', icon: '', image: '' }); fetchCategories(); notify('✓ Category added!', 'success'); }
-                      else { const d = await res.json(); notify(d.error || 'Failed', 'error'); }
+                      if (editingCategory) {
+                        await fetch(`${API}/categories/${editingCategory.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingCategory.name, image: editingCategory.image }) });
+                        setEditingCategory(null); fetchCategories(); notify('✓ Category updated!', 'success');
+                      } else {
+                        if (!newCategory.name) { notify('Category name required', 'warning'); return; }
+                        const res = await fetch(`${API}/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newCategory) });
+                        if (res.ok) { setNewCategory({ name: '', icon: '', image: '' }); fetchCategories(); notify('✓ Category added!', 'success'); }
+                        else { const d = await res.json(); notify(d.error || 'Failed', 'error'); }
+                      }
                     }}>
-                      <input type="text" placeholder="Category name" value={newCategory.name} onChange={e => setNewCategory({...newCategory, name: e.target.value})} />
-                      <input type="text" placeholder="Icon/Image URL (e.g. https://img.icons8.com/...)" value={newCategory.image || ''} onChange={e => setNewCategory({...newCategory, image: e.target.value})} />
-                      <button type="submit" className="admin-save-btn">Add Category</button>
+                      <input type="text" placeholder="Category name" value={editingCategory ? editingCategory.name : newCategory.name} onChange={e => editingCategory ? setEditingCategory({...editingCategory, name: e.target.value}) : setNewCategory({...newCategory, name: e.target.value})} />
+                      <input type="text" placeholder="Icon/Image URL" value={editingCategory ? (editingCategory.image || '') : (newCategory.image || '')} onChange={e => editingCategory ? setEditingCategory({...editingCategory, image: e.target.value}) : setNewCategory({...newCategory, image: e.target.value})} />
+                      <button type="submit" className="admin-save-btn">{editingCategory ? 'Update' : 'Add Category'}</button>
+                      {editingCategory && <button type="button" className="admin-cancel-btn" onClick={() => setEditingCategory(null)}>Cancel</button>}
                     </form>
                   </div>
                   <div className="admin-section">
@@ -1015,6 +1022,7 @@ function App() {
                               <td><span className="admin-category-badge" style={{cursor:'pointer'}} onClick={() => { setAdminPage('products'); setProductSearch(c.name); }}>{count} product{count !== 1 ? 's' : ''}</span></td>
                               <td><input type="text" defaultValue={c.image || ''} style={{width:'160px',padding:'5px 8px',border:'1px solid #e5e7eb',borderRadius:'6px',fontSize:'0.75rem'}} onBlur={async (e) => { if (e.target.value !== (c.image || '')) { await fetch(`${API}/categories/${c.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: c.name, image: e.target.value }) }); fetchCategories(); notify('Icon updated', 'success'); } }} /></td>
                               <td className="admin-actions-cell">
+                                <button className="admin-edit-btn" onClick={() => setEditingCategory({ ...c })}>✏️</button>
                                 <button className="admin-delete-btn" onClick={async () => { if (window.confirm(`Delete "${c.name}"? Products in this category won't be deleted.`)) { await fetch(`${API}/categories/${c.id}`, { method: 'DELETE' }); fetchCategories(); notify('Deleted', 'success'); } }}>🗑️</button>
                               </td>
                             </tr>
