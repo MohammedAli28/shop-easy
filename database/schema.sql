@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     icon VARCHAR(10) DEFAULT '📦',
+    image VARCHAR(500) DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -87,18 +88,18 @@ CREATE TABLE IF NOT EXISTS payments (
 );
 
 -- Seed categories
-INSERT IGNORE INTO categories (id, name, icon) VALUES
-    (1, 'Mobile', '📱'),
-    (2, 'Laptop', '💻'),
-    (3, 'Television', '📺'),
-    (4, 'Earpods', '🎧'),
-    (5, 'Kitchen', '🍳'),
-    (6, 'Accessories', '⌚'),
-    (7, 'Cameras', '📷'),
-    (8, 'Fans', '🌀'),
-    (9, 'Grooming', '💈'),
-    (10, 'Storage', '💾'),
-    (11, 'Air Conditioners', '❄️');
+INSERT IGNORE INTO categories (id, name, icon, image) VALUES
+    (1, 'Mobile', '📱', 'https://img.icons8.com/fluency/64/iphone.png'),
+    (2, 'Laptop', '💻', 'https://img.icons8.com/fluency/64/laptop.png'),
+    (3, 'Television', '📺', 'https://img.icons8.com/fluency/64/tv.png'),
+    (4, 'Earpods', '🎧', 'https://img.icons8.com/fluency/64/headphones.png'),
+    (5, 'Kitchen', '🍳', 'https://img.icons8.com/fluency/64/cooking-pot.png'),
+    (6, 'Accessories', '⌚', 'https://img.icons8.com/fluency/64/apple-watch.png'),
+    (7, 'Cameras', '📷', 'https://img.icons8.com/fluency/64/camera.png'),
+    (8, 'Fans', '🌀', 'https://img.icons8.com/fluency/64/fan.png'),
+    (9, 'Grooming', '💈', 'https://img.icons8.com/fluency/64/barber-scissors.png'),
+    (10, 'Storage', '💾', 'https://img.icons8.com/fluency/64/ssd.png'),
+    (11, 'Air Conditioners', '❄️', 'https://img.icons8.com/fluency/64/air-conditioner.png');
 
 -- Seed data (ignore if already exists)
 INSERT IGNORE INTO users (id, email, name) VALUES

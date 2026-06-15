@@ -135,7 +135,7 @@ function App() {
   const [showBackTop, setShowBackTop] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState([]);
-  const [newCategory, setNewCategory] = useState({ name: '', icon: '' });
+  const [newCategory, setNewCategory] = useState({ name: '', icon: '', image: '' });
   // Auth
   const [adminLoggedIn, setAdminLoggedIn] = useState(() => !!sessionStorage.getItem(ADMIN_TOKEN_KEY));
   const [adminLogin, setAdminLogin] = useState({ username: '', password: '' });
@@ -329,10 +329,9 @@ function App() {
                   <span>All</span>
                 </div>
                 {categories.map(c => {
-                  const icons = { 'Mobile': 'https://img.icons8.com/fluency/64/iphone.png', 'Laptop': 'https://img.icons8.com/fluency/64/laptop.png', 'Television': 'https://img.icons8.com/fluency/64/tv.png', 'Earpods': 'https://img.icons8.com/fluency/64/headphones.png', 'Kitchen': 'https://img.icons8.com/fluency/64/cooking-pot.png', 'Accessories': 'https://img.icons8.com/fluency/64/apple-watch.png', 'Cameras': 'https://img.icons8.com/fluency/64/camera.png', 'Fans': 'https://img.icons8.com/fluency/64/fan.png', 'Grooming': 'https://img.icons8.com/fluency/64/barber-scissors.png', 'Storage': 'https://img.icons8.com/fluency/64/ssd.png', 'Air Conditioners': 'https://img.icons8.com/fluency/64/air-conditioner.png' };
                   return (
                   <div key={c.id} className={`category-item ${activeFilter === c.name ? 'active' : ''}`} onClick={() => { setActiveFilter(c.name); setSearchQuery(''); }}>
-                    <div className="cat-icon-wrap"><img src={icons[c.name] || 'https://cdn-icons-png.flaticon.com/64/3652/3652191.png'} alt={c.name} /></div>
+                    <div className="cat-icon-wrap"><img src={c.image || 'https://img.icons8.com/fluency/64/apps-tab.png'} alt={c.name} /></div>
                     <span>{c.name}</span>
                   </div>
                   );
@@ -993,10 +992,11 @@ function App() {
                       e.preventDefault();
                       if (!newCategory.name) { notify('Category name required', 'warning'); return; }
                       const res = await fetch(`${API}/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newCategory) });
-                      if (res.ok) { setNewCategory({ name: '', icon: '' }); fetchCategories(); notify('✓ Category added!', 'success'); }
+                      if (res.ok) { setNewCategory({ name: '', icon: '', image: '' }); fetchCategories(); notify('✓ Category added!', 'success'); }
                       else { const d = await res.json(); notify(d.error || 'Failed', 'error'); }
                     }}>
                       <input type="text" placeholder="Category name" value={newCategory.name} onChange={e => setNewCategory({...newCategory, name: e.target.value})} />
+                      <input type="text" placeholder="Icon/Image URL (e.g. https://img.icons8.com/...)" value={newCategory.image || ''} onChange={e => setNewCategory({...newCategory, image: e.target.value})} />
                       <button type="submit" className="admin-save-btn">Add Category</button>
                     </form>
                   </div>
@@ -1004,14 +1004,16 @@ function App() {
                     <h3>All Categories</h3>
                     <div className="admin-table-wrapper">
                       <table className="admin-table">
-                        <thead><tr><th>Name</th><th>Products</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Icon</th><th>Name</th><th>Products</th><th>Image URL</th><th>Actions</th></tr></thead>
                         <tbody>
                           {categories.map(c => {
                             const count = products.filter(p => p.category === c.name).length;
                             return (
                             <tr key={c.id}>
+                              <td>{c.image ? <img src={c.image} alt={c.name} style={{width:28,height:28,objectFit:'contain'}} /> : '-'}</td>
                               <td><strong>{c.name}</strong></td>
                               <td><span className="admin-category-badge" style={{cursor:'pointer'}} onClick={() => { setAdminPage('products'); setProductSearch(c.name); }}>{count} product{count !== 1 ? 's' : ''}</span></td>
+                              <td><input type="text" defaultValue={c.image || ''} style={{width:'160px',padding:'5px 8px',border:'1px solid #e5e7eb',borderRadius:'6px',fontSize:'0.75rem'}} onBlur={async (e) => { if (e.target.value !== (c.image || '')) { await fetch(`${API}/categories/${c.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: c.name, image: e.target.value }) }); fetchCategories(); notify('Icon updated', 'success'); } }} /></td>
                               <td className="admin-actions-cell">
                                 <button className="admin-delete-btn" onClick={async () => { if (window.confirm(`Delete "${c.name}"? Products in this category won't be deleted.`)) { await fetch(`${API}/categories/${c.id}`, { method: 'DELETE' }); fetchCategories(); notify('Deleted', 'success'); } }}>🗑️</button>
                               </td>

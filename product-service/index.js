@@ -30,14 +30,22 @@ app.get('/categories', async (req, res) => {
 
 app.post('/categories', async (req, res) => {
   try {
-    const { name, icon } = req.body;
+    const { name, icon, image } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
-    const [result] = await pool.query('INSERT INTO categories (name, icon) VALUES (?, ?)', [name, icon || '📦']);
-    res.status(201).json({ id: result.insertId, name, icon: icon || '📦' });
+    const [result] = await pool.query('INSERT INTO categories (name, icon, image) VALUES (?, ?, ?)', [name, icon || '📦', image || '']);
+    res.status(201).json({ id: result.insertId, name, icon: icon || '📦', image: image || '' });
   } catch (e) {
     if (e.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Category already exists' });
     res.status(500).json({ error: e.message });
   }
+});
+
+app.put('/categories/:id', async (req, res) => {
+  try {
+    const { name, image } = req.body;
+    await pool.query('UPDATE categories SET name=COALESCE(?,name), image=COALESCE(?,image) WHERE id=?', [name, image, req.params.id]);
+    res.json({ id: parseInt(req.params.id), name, image });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/categories/:id', async (req, res) => {
