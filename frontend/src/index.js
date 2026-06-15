@@ -748,10 +748,10 @@ function App() {
                       </div>
                     </div>
                     <div className="stat-card stat-blue">
-                      <span className="stat-icon">🚀</span>
+                      <span className="stat-icon">📦</span>
                       <div className="stat-info">
-                        <span className="stat-value">{products.length}</span>
-                        <span className="stat-label">Products Live</span>
+                        <span className="stat-value">{allOrders.filter(o => o.status === 'delivered').length}</span>
+                        <span className="stat-label">Delivered</span>
                       </div>
                     </div>
                   </div>
