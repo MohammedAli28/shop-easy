@@ -158,7 +158,7 @@ function App() {
   const fetchAdminStats = () => fetch(`${API}/orders/stats/summary`).then(r => r.json()).then(setAdminStats).catch(() => {});
   const fetchAllOrders = () => fetch(`${API}/orders/all`).then(r => r.json()).then(setAllOrders).catch(() => {});
   const fetchChartData = (mins) => fetch(`${API}/orders/stats/timeseries?minutes=${mins}`).then(r => r.json()).then(data => {
-    setChartData(data.map(d => ({ ...d, time: new Date(d.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), paid: parseFloat(d.paid) || 0, failed: parseFloat(d.failed) || 0, pending: parseFloat(d.pending) || 0 })));
+    setChartData(data.map(d => ({ ...d, time: new Date(d.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), revenue: parseFloat(d.revenue) || 0, failed: parseFloat(d.failed) || 0, pending: parseFloat(d.pending) || 0 })));
   }).catch(() => {});
   const fetchCustomerOrders = (email) => fetch(`${API}/orders/by-email/${encodeURIComponent(email)}`).then(r => r.json()).then(setCustomerOrders).catch(() => {});
 
@@ -709,7 +709,7 @@ function App() {
             <div className="admin-content">
 
               {adminPage === 'dashboard' && (() => {
-                const paidRevenue = allOrders.filter(o => o.status === 'paid').reduce((s, o) => s + parseFloat(o.total), 0);
+                const paidRevenue = allOrders.filter(o => ['paid','shipped','delivered'].includes(o.status)).reduce((s, o) => s + parseFloat(o.total), 0);
                 const failedAmount = allOrders.filter(o => o.status === 'failed').reduce((s, o) => s + parseFloat(o.total), 0);
                 const pendingAmount = allOrders.filter(o => o.status === 'pending').reduce((s, o) => s + parseFloat(o.total), 0);
                 const timeRanges = [
@@ -790,7 +790,7 @@ function App() {
                             <Tooltip contentStyle={{ background: '#1a1a2e', border: 'none', borderRadius: 8, color: '#fff' }}
                               labelStyle={{ color: '#9ca3af' }} formatter={(v) => [`$${v.toFixed(2)}`]} />
                             <Legend wrapperStyle={{ fontSize: 12 }} />
-                            <Area type="monotone" dataKey="paid" name="Paid" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorPaid)" />
+                            <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorPaid)" />
                             <Area type="monotone" dataKey="failed" name="Failed" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorFailed)" />
                             <Area type="monotone" dataKey="pending" name="Pending" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorPending)" />
                           </AreaChart>
@@ -807,13 +807,13 @@ function App() {
                     </div>
                     <div className="chart-wrapper">
                       <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={[{ name: 'Revenue', Paid: paidRevenue, Failed: failedAmount, Pending: pendingAmount }]} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <BarChart data={[{ name: 'Revenue', Revenue: paidRevenue, Failed: failedAmount, Pending: pendingAmount }]} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                           <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6b7280' }} />
                           <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={v => `$${v}`} />
                           <Tooltip contentStyle={{ background: '#1a1a2e', border: 'none', borderRadius: 8, color: '#fff' }} formatter={(v) => [`$${v.toFixed(2)}`]} />
                           <Legend wrapperStyle={{ fontSize: 12 }} />
-                          <Bar dataKey="Paid" fill="#10b981" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="Failed" fill="#ef4444" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="Pending" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                         </BarChart>

@@ -70,10 +70,10 @@ app.get('/orders/stats/timeseries', async (req, res) => {
       `SELECT 
         FLOOR(UNIX_TIMESTAMP(created_at) / (? * 60 / 20)) as bucket,
         MIN(created_at) as time,
-        SUM(CASE WHEN status='paid' THEN total ELSE 0 END) as paid,
+        SUM(CASE WHEN status IN ('paid','shipped','delivered') THEN total ELSE 0 END) as revenue,
         SUM(CASE WHEN status='failed' THEN total ELSE 0 END) as failed,
         SUM(CASE WHEN status='pending' THEN total ELSE 0 END) as pending,
-        COUNT(CASE WHEN status='paid' THEN 1 END) as paid_count,
+        COUNT(CASE WHEN status IN ('paid','shipped','delivered') THEN 1 END) as revenue_count,
         COUNT(CASE WHEN status='failed' THEN 1 END) as failed_count,
         COUNT(CASE WHEN status='pending' THEN 1 END) as pending_count
       FROM orders 
