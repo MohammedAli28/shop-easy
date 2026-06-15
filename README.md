@@ -1,6 +1,6 @@
 # 🛍️ Shop Easy — E-Commerce Microservices
 
-> Lightweight microservices e-commerce app on AWS ECS Fargate with Stripe payments, admin dashboard, and customer portal. 1-click deploy via GitHub Actions.
+> Full-featured microservices e-commerce app on AWS ECS Fargate with Stripe payments, admin dashboard, category management, customer portal, and Grafana-style analytics. 1-click deploy via GitHub Actions.
 
 ---
 
@@ -15,7 +15,7 @@
 | Service | Port | Handles | Tech |
 |---------|------|---------|------|
 | Frontend | 80 | UI — shop, cart, checkout, admin panel, customer portal | React + Recharts + Stripe Elements + Nginx |
-| Product Service | 4001 | Products CRUD + Cart | Node.js/Express |
+| Product Service | 4001 | Products CRUD + Cart + Categories | Node.js/Express |
 | Order Service | 4002 | Orders + Payments + Auth + Analytics | Node.js/Express + Stripe SDK |
 
 ---
@@ -23,21 +23,32 @@
 ## Features
 
 ### Customer Experience
-- **Product catalog** — 4-column grid, category filters, product detail modal
-- **Sales banner** — Live promotional banner with CTA
+- **Hero banner** — Dark gradient with promotional text and CTA buttons
+- **Category navigation** — Flipkart-style icon strip with arrow navigation (scrollable)
+- **Product catalog** — 4-column grid, star ratings, category filters
+- **Search** — Real-time search by product name or category
+- **Hot Deals** — 4 random products with SALE badge and strikethrough pricing
+- **Trending slider** — Auto-scrolling product carousel
+- **Product detail modal** — Full description, ratings, customer reviews (Flipkart-style)
 - **Shopping cart** — Add/remove items, quantity display
-- **Checkout** — Name, email, phone, address + Stripe card payment
+- **Checkout** — Name, email, phone, address + Stripe card payment (billing details sent to Stripe)
 - **My Orders** — Email-based login, order history with progress tracker (Ordered → Paid → Shipped → Delivered)
 - **Receipts** — Printable order receipts with full payment details
+- **Trust bar** — Free Shipping, Secure Payment, Easy Returns, Top Quality
+- **Promo banner** — Flash deal promotional section
 - **Mobile responsive** — Hamburger menu with flyout navigation
+- **Back to top** — Floating button on scroll
 
-### Admin Panel (Protected)
+### Admin Panel (Protected — no header, full-screen layout)
 - **Login** — Username/password authentication (`admin` / `ShopEasy2026`)
-- **Dashboard** — Stats cards (Total Orders, Paid, Failed, Products Live)
+- **Dashboard** — Stats cards (📊 Total Orders, 💰 Paid, 🚨 Failed, 🚀 Products Live)
 - **Grafana-style charts** — Revenue Over Time (area chart) + Revenue Breakdown (bar chart)
+- **Revenue** includes paid + shipped + delivered orders
 - **Time range selector** — 10m, 1h, 4h, 6h, 12h, 1d, 3d
-- **Products CRUD** — Add/edit/delete products on dedicated form page
+- **Products CRUD** — Add/edit/delete products on dedicated form page, category dropdown
+- **Categories management** — Add/edit/delete categories with custom icon URLs, product count per category
 - **Orders management** — Filter by status (All/Paid/Pending/Failed/Shipped/Delivered), update status
+- **Logout** — Session-based admin auth
 
 ---
 
@@ -122,6 +133,7 @@ Open http://localhost:3000
 | Database | MySQL 8.0 (RDS) |
 | Payments | Stripe (test mode) |
 | Charts | Recharts (Grafana-style analytics) |
+| Icons | Icons8 Fluency (CDN) |
 | Monitoring | CloudWatch Dashboard + Logs Insights |
 | Containers | Docker, ECS Fargate |
 | Networking | VPC, ALB, NAT Gateway |
@@ -137,16 +149,30 @@ Open http://localhost:3000
 ```
 shop-easy/
 ├── frontend/           # React SPA + Nginx (shop, admin, customer portal)
-├── product-service/    # Products CRUD + Cart API
+├── product-service/    # Products CRUD + Cart + Categories API
 ├── order-service/      # Orders + Payments + Auth + Analytics API
 ├── db-init/            # DB migration container (runs once)
-├── database/           # SQL schema + seed data
+├── database/           # SQL schema + seed data (15 products, 11 categories)
 ├── terraform/          # AWS infra (VPC, ECS, RDS, ALB, CloudWatch)
 ├── .github/workflows/  # 1-click CI/CD pipeline
 ├── docs/               # Architecture diagrams + documentation
 ├── docker-compose.yml  # Local development
 └── .env                # Local Stripe keys (gitignored)
 ```
+
+---
+
+## Database Schema
+
+| Table | Purpose |
+|-------|---------|
+| `categories` | Category name, icon, image URL |
+| `products` | Name, description, price, image, category, stock |
+| `users` | Email, name |
+| `cart_items` | User cart (user_id, product_id, quantity) |
+| `orders` | Order with shipping details + status |
+| `order_items` | Products in each order |
+| `payments` | Payment records (amount, status, method) |
 
 ---
 
@@ -160,6 +186,10 @@ shop-easy/
 | POST | /products | Create product (admin) |
 | PUT | /products/:id | Update product (admin) |
 | DELETE | /products/:id | Delete product (admin) |
+| GET | /categories | List all categories |
+| POST | /categories | Create category (admin) |
+| PUT | /categories/:id | Update category (admin) |
+| DELETE | /categories/:id | Delete category (admin) |
 | GET | /cart/:userId | Get cart items |
 | POST | /cart | Add to cart |
 | DELETE | /cart/:id | Remove from cart |
@@ -169,7 +199,7 @@ shop-easy/
 |--------|------|-------------|
 | POST | /auth/admin | Admin login |
 | GET | /orders/stats/summary | Dashboard stats |
-| GET | /orders/stats/timeseries | Chart data (query: ?minutes=60) |
+| GET | /orders/stats/timeseries | Revenue chart data (query: ?minutes=60) |
 | GET | /orders/all | All orders (admin) |
 | GET | /orders/by-email/:email | Customer orders |
 | GET | /orders/:userId | User orders |
@@ -183,12 +213,31 @@ shop-easy/
 
 ## User Flow
 
-1. **Browse Products** — 4-col grid, category filters, sales banner
-2. **Add to Cart** — Click "Add", cart badge updates
-3. **Checkout** — Fill name, email, phone, address + card via Stripe
-4. **Payment** — Stripe processes, billing details sent to Stripe
-5. **My Orders** — Enter email → view orders with status tracker + receipts
-6. **Admin** — Login → Dashboard with charts → Manage products & orders
+1. **Browse** — Hero banner → Category strip → Product grid with search
+2. **Filter** — Click category or search by name/category
+3. **View** — Click product → Modal with details, ratings, reviews
+4. **Cart** — Add items, view cart, proceed to checkout
+5. **Pay** — Fill shipping details + Stripe card → Payment processed
+6. **Track** — My Orders → Email login → Order progress tracker + receipts
+7. **Admin** — Login → Dashboard → Manage products, categories, orders
+
+---
+
+## Default Categories (11)
+
+| Category | Icon |
+|----------|------|
+| Mobile | 📱 |
+| Laptop | 💻 |
+| Television | 📺 |
+| Earpods | 🎧 |
+| Kitchen | 🍳 |
+| Accessories | ⌚ |
+| Cameras | 📷 |
+| Fans | 🌀 |
+| Grooming | 💈 |
+| Storage | 💾 |
+| Air Conditioners | ❄️ |
 
 ---
 
@@ -235,3 +284,9 @@ https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashbo
 - Stripe keys stored as GitHub Secrets — never in code
 - Terraform state encrypted in S3 with versioning
 - Stripe test mode — no real charges
+
+---
+
+## Credits
+
+© 2026 ShopEasy. Proudly built by **Anil Jadhav**
