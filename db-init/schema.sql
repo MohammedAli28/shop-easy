@@ -115,9 +115,9 @@ INSERT INTO products (id, name, description, price, image, category, stock) VALU
     (8, 'HomePod Mini', 'Compact smart speaker, Siri built-in', 99.99, 'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-homepod-mini-cosmic-grey/thumbnail.webp', 'Accessories', 250),
     (9, 'Wireless Charger', 'Fast charging pad, Qi compatible', 29.99, 'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpower-wireless-charger/thumbnail.webp', 'Accessories', 180),
     (10, 'Lenovo Yoga 920', '2-in-1 convertible, i7, 14" 4K touchscreen', 1399.99, 'https://cdn.dummyjson.com/product-images/laptops/lenovo-yoga-920/thumbnail.webp', 'Laptop', 90),
-    (11, 'Split AC 1.5 Ton', '5-star inverter, copper condenser, Wi-Fi enabled', 699.99, 'https://cdn.dummyjson.com/products/images/furniture/Annibale%20Colombo%20Sofa/thumbnail.png', 'Air Conditioners', 30),
+    (11, 'Daikin Split AC 1.5 Ton', '5-star inverter, copper condenser, Wi-Fi enabled, auto-clean', 699.99, 'https://placehold.co/400x400/f0f9ff/1e40af?text=Daikin+AC\n1.5+Ton&font=raleway', 'Air Conditioners', 30),
     (12, 'Canon EOS R50', 'Mirrorless camera, 24.2MP, 4K video, Wi-Fi', 879.99, 'https://cdn.dummyjson.com/products/images/mobile-accessories/Selfie%20Stick%20Monopod/thumbnail.png', 'Cameras', 20),
     (13, 'GoPro HERO12', 'Waterproof action camera, 5.3K video, HyperSmooth', 399.99, 'https://cdn.dummyjson.com/products/images/mobile-accessories/TV%20Studio%20Camera%20Pedestal/thumbnail.png', 'Cameras', 45),
-    (14, 'Tower Fan Bladeless', 'Oscillating tower fan, remote control, sleep timer', 149.99, 'https://cdn.dummyjson.com/products/images/kitchen-accessories/Bamboo%20Spatula/thumbnail.png', 'Fans', 60),
-    (15, 'Beard Trimmer Pro', 'Cordless trimmer, 20 length settings, 90min runtime', 59.99, 'https://cdn.dummyjson.com/products/images/beauty/Eyeshadow%20Palette%20with%20Mirror/thumbnail.png', 'Grooming', 100)
+    (14, 'Dyson Tower Fan', 'Bladeless oscillating fan, remote control, 10 speeds, sleep timer', 149.99, 'https://placehold.co/400x400/f0fdf4/166534?text=Dyson\nTower+Fan&font=raleway', 'Fans', 60),
+    (15, 'Makeup Kit Pro', 'Eyeshadow palette with mirror, 24 colors, professional grade', 59.99, 'https://cdn.dummyjson.com/products/images/beauty/Eyeshadow%20Palette%20with%20Mirror/thumbnail.png', 'Grooming', 100)
 ON DUPLICATE KEY UPDATE image = VALUES(image), name = VALUES(name), description = VALUES(description), price = VALUES(price), category = VALUES(category), stock = VALUES(stock);
