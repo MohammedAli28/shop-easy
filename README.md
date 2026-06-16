@@ -4,6 +4,12 @@
 
 ---
 
+## Live Demo
+
+![Shop Easy Live Demo](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/demo.jpg)
+
+---
+
 ## Architecture
 
 ![Shop Easy Architecture](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/flow.png)
@@ -42,7 +48,14 @@
 - **Orders management** — Filter by status (All/Paid/Pending/Failed/Shipped/Delivered), update status
 - **Logout** — Session-based admin auth
 
+### Admin Panel
+
+![Admin Panel](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/admin_panel.jpg)
+
 ### Observability (Grafana + Prometheus + PagerDuty)
+
+![Grafana Dashboard](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/grphana.jpg)
+
 - **Business Dashboard** — Booking Amount, Booking Count (Booked/Pending/Failed), pie chart, revenue over time
 - **Infrastructure Dashboard** — Service UP/DOWN, CPU, Memory, HTTP request rates, P95 response time, error rates
 - **PagerDuty Alerting** — Auto-triggers incident if `orders_failed_total > 5`

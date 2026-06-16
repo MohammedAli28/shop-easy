@@ -27,6 +27,8 @@
 
 ## Project Overview
 
+![Shop Easy Live Demo](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/demo.jpg)
+
 Shop Easy is a **production-grade e-commerce application** built with microservices architecture, deployed on AWS ECS Fargate with Stripe payment integration and real-time CloudWatch monitoring.
 
 **What it demonstrates:**
@@ -94,6 +96,8 @@ Observability → order-service:4002/metrics    (Prometheus scrape)
 ## Service Details
 
 ### 1. Frontend (React + Nginx)
+
+![Admin Panel](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/admin_panel.jpg)
 
 | Property | Value |
 |----------|-------|
@@ -589,6 +593,8 @@ RDS SG:
 ## Observability (Grafana + Prometheus + PagerDuty)
 
 ### Architecture
+
+![Grafana Dashboard](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/grphana.jpg)
 
 ```
 ┌─── Observability Container ──────────────────────────────────┐
