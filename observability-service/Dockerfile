@@ -17,6 +17,7 @@ COPY prometheus.yml /etc/prometheus/prometheus.yml
 # Grafana provisioning
 COPY provisioning/datasources/ /etc/grafana/provisioning/datasources/
 COPY provisioning/alerting/ /etc/grafana/provisioning/alerting/
+COPY provisioning/dashboards/ /etc/grafana/provisioning/dashboards/
 
 # Startup script
 COPY start.sh /start.sh
