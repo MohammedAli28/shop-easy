@@ -94,16 +94,22 @@ jobs:
           aws ecs wait tasks-stopped --cluster $PROJECT-cluster --tasks $TASK_ARN
           echo "✅ Database schema loaded"
 
-      - name: 🚀 Deploy Services
+      - name: 🚀 Deploy Services (1-by-1, wait for stable)
         run: |
-          echo "Deploying product-service..."
+          echo "1️⃣ Deploying product-service..."
           aws ecs update-service --cluster $PROJECT-cluster --service product-service --force-new-deployment
-          sleep 30
-          echo "Deploying order-service..."
+          aws ecs wait services-stable --cluster $PROJECT-cluster --services product-service
+          echo "✅ product-service is healthy"
+
+          echo "2️⃣ Deploying order-service..."
           aws ecs update-service --cluster $PROJECT-cluster --service order-service --force-new-deployment
-          sleep 30
-          echo "Deploying frontend..."
+          aws ecs wait services-stable --cluster $PROJECT-cluster --services order-service
+          echo "✅ order-service is healthy"
+
+          echo "3️⃣ Deploying frontend..."
           aws ecs update-service --cluster $PROJECT-cluster --service frontend --force-new-deployment
+          aws ecs wait services-stable --cluster $PROJECT-cluster --services frontend
+          echo "✅ frontend is healthy"
 
       - name: ✅ Verify Deployment
         env:

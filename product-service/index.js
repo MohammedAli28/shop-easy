@@ -92,8 +92,13 @@ app.put('/products/:id', async (req, res) => {
 
 app.delete('/products/:id', async (req, res) => {
   try {
+    const [orders] = await pool.query('SELECT COUNT(*) as count FROM order_items WHERE product_id = ?', [req.params.id]);
+    if (orders[0].count > 0) {
+      await pool.query('UPDATE products SET stock = 0 WHERE id = ?', [req.params.id]);
+      await pool.query('DELETE FROM cart_items WHERE product_id = ?', [req.params.id]);
+      return res.json({ message: 'Product deactivated (has order history)' });
+    }
     await pool.query('DELETE FROM cart_items WHERE product_id = ?', [req.params.id]);
-    await pool.query('DELETE FROM order_items WHERE product_id = ?', [req.params.id]);
     await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
     res.status(204).end();
   } catch (e) { res.status(500).json({ error: e.message }); }

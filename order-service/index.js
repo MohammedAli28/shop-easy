@@ -5,6 +5,9 @@ const Stripe = require('stripe');
 const app = express();
 app.use(express.json());
 
+// Input sanitization
+const sanitize = (str) => typeof str === 'string' ? str.replace(/[<>"';]/g, '').trim() : str;
+
 // Structured logging for CloudWatch Logs Insights
 const log = (event, data) => console.log(JSON.stringify({ timestamp: new Date().toISOString(), event, ...data }));
 
@@ -108,7 +111,14 @@ app.get('/orders/:userId', async (req, res) => {
 });
 
 app.post('/orders', async (req, res) => {
-  const { user_id, shipping_name, shipping_email, shipping_phone, shipping_address } = req.body;
+  const user_id = parseInt(req.body.user_id);
+  const shipping_name = sanitize(req.body.shipping_name);
+  const shipping_email = sanitize(req.body.shipping_email);
+  const shipping_phone = sanitize(req.body.shipping_phone);
+  const shipping_address = sanitize(req.body.shipping_address);
+  if (!user_id || !shipping_name || !shipping_email || !shipping_address) {
+    return res.status(400).json({ error: 'Missing required shipping fields' });
+  }
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -142,7 +152,8 @@ app.post('/orders', async (req, res) => {
 // ─── Stripe: Create Payment Intent ───
 app.post('/payments/create-intent', async (req, res) => {
   try {
-    const { order_id } = req.body;
+    const order_id = parseInt(req.body.order_id);
+    if (!order_id) return res.status(400).json({ error: 'Invalid order_id' });
     const [order] = await pool.query('SELECT * FROM orders WHERE id = ?', [order_id]);
     if (!order.length) return res.status(404).json({ error: 'Order not found' });
     if (order[0].status !== 'pending') return res.status(400).json({ error: 'Order already processed' });
@@ -166,7 +177,9 @@ app.post('/payments/create-intent', async (req, res) => {
 // ─── Stripe: Log Failed Payment (called by frontend on card error) ───
 app.post('/payments/failed', async (req, res) => {
   try {
-    const { order_id, reason } = req.body;
+    const order_id = parseInt(req.body.order_id);
+    const reason = sanitize(req.body.reason || 'Unknown');
+    if (!order_id) return res.status(400).json({ error: 'Invalid order_id' });
     const [order] = await pool.query('SELECT * FROM orders WHERE id = ?', [order_id]);
     if (!order.length) return res.status(404).json({ error: 'Order not found' });
 
@@ -186,7 +199,9 @@ app.post('/payments/failed', async (req, res) => {
 // ─── Stripe: Confirm Payment ───
 app.post('/payments/confirm', async (req, res) => {
   try {
-    const { order_id, payment_intent_id } = req.body;
+    const order_id = parseInt(req.body.order_id);
+    const payment_intent_id = req.body.payment_intent_id;
+    if (!order_id || !payment_intent_id) return res.status(400).json({ error: 'Missing order_id or payment_intent_id' });
     const [order] = await pool.query('SELECT * FROM orders WHERE id = ?', [order_id]);
     if (!order.length) return res.status(404).json({ error: 'Order not found' });
 
