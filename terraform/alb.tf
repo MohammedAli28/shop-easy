@@ -80,7 +80,7 @@ resource "aws_lb_target_group" "observability" {
   target_type = "ip"
 
   health_check {
-    path = "/api/health"
+    path = "/grafana/api/health"
   }
 }
 

@@ -1,5 +1,13 @@
 resource "aws_ecs_cluster" "main" {
   name = "${var.project}-cluster"
+
+  service_connect_defaults {
+    namespace = aws_service_discovery_http_namespace.main.arn
+  }
+}
+
+resource "aws_service_discovery_http_namespace" "main" {
+  name = var.project
 }
 
 resource "aws_security_group" "ecs" {
@@ -39,7 +47,7 @@ resource "aws_ecs_task_definition" "product" {
   container_definitions = jsonencode([{
     name  = "product-service"
     image = "${aws_ecr_repository.product.repository_url}:latest"
-    portMappings = [{ containerPort = 4001 }]
+    portMappings = [{ containerPort = 4001, name = "http", protocol = "tcp" }]
     environment = [
       { name = "DB_HOST", value = aws_db_instance.main.address },
       { name = "DB_USER", value = "admin" },
@@ -76,6 +84,19 @@ resource "aws_ecs_service" "product" {
     container_name   = "product-service"
     container_port   = 4001
   }
+
+  service_connect_configuration {
+    enabled   = true
+    namespace = aws_service_discovery_http_namespace.main.arn
+    service {
+      port_name      = "http"
+      discovery_name = "product-service"
+      client_alias {
+        port     = 4001
+        dns_name = "product-service"
+      }
+    }
+  }
 }
 
 # ─── Order Service (orders + payments) ───
@@ -91,7 +112,7 @@ resource "aws_ecs_task_definition" "order" {
   container_definitions = jsonencode([{
     name  = "order-service"
     image = "${aws_ecr_repository.order.repository_url}:latest"
-    portMappings = [{ containerPort = 4002 }]
+    portMappings = [{ containerPort = 4002, name = "http", protocol = "tcp" }]
     environment = [
       { name = "DB_HOST", value = aws_db_instance.main.address },
       { name = "DB_USER", value = "admin" },
@@ -130,6 +151,19 @@ resource "aws_ecs_service" "order" {
     target_group_arn = aws_lb_target_group.order.arn
     container_name   = "order-service"
     container_port   = 4002
+  }
+
+  service_connect_configuration {
+    enabled   = true
+    namespace = aws_service_discovery_http_namespace.main.arn
+    service {
+      port_name      = "http"
+      discovery_name = "order-service"
+      client_alias {
+        port     = 4002
+        dns_name = "order-service"
+      }
+    }
   }
 }
 
@@ -225,6 +259,11 @@ resource "aws_ecs_service" "observability" {
     target_group_arn = aws_lb_target_group.observability.arn
     container_name   = "observability"
     container_port   = 3000
+  }
+
+  service_connect_configuration {
+    enabled   = true
+    namespace = aws_service_discovery_http_namespace.main.arn
   }
 }
 

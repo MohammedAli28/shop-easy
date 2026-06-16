@@ -4,7 +4,7 @@ const Stripe = require('stripe');
 const { collectDefaultMetrics, register, Counter, Histogram } = require('prom-client');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // Input sanitization
 const sanitize = (str) => typeof str === 'string' ? str.replace(/[<>"';]/g, '').trim() : str;
@@ -43,6 +43,8 @@ const connectDB = () => {
     database: process.env.DB_NAME || 'shop_easy',
     waitForConnections: true,
     connectionLimit: 5,
+    connectTimeout: 30000,
+    enableKeepAlive: true,
   });
 };
 connectDB();
@@ -119,6 +121,8 @@ app.get('/orders/all', async (req, res) => {
 app.put('/orders/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
+    const allowed = ['pending', 'paid', 'failed', 'shipped', 'delivered'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
     await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id]);
     res.json({ id: parseInt(req.params.id), status });
   } catch (e) { res.status(500).json({ error: e.message }); }

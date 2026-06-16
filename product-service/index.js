@@ -3,7 +3,7 @@ const mysql = require('mysql2/promise');
 const { collectDefaultMetrics, register, Counter, Histogram } = require('prom-client');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // Prometheus metrics
 collectDefaultMetrics({ prefix: 'product_svc_' });
@@ -30,6 +30,8 @@ const connectDB = () => {
     database: process.env.DB_NAME || 'shop_easy',
     waitForConnections: true,
     connectionLimit: 5,
+    connectTimeout: 30000,
+    enableKeepAlive: true,
   });
 };
 connectDB();
