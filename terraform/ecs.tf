@@ -21,6 +21,14 @@ resource "aws_security_group" "ecs" {
     security_groups = [aws_security_group.alb.id]
   }
 
+  ingress {
+    description = "ECS to ECS (Service Connect + Prometheus)"
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    self        = true
+  }
+
   egress {
     from_port   = 0
     to_port     = 0

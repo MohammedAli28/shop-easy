@@ -100,26 +100,47 @@ jobs:
           echo "✅ Database schema loaded"
 
       - name: 🚀 Deploy Services (1-by-1, wait for stable)
+        env:
+          AWS_PAGER: ""
         run: |
+          wait_stable() {
+            local svc=$1
+            echo "⏳ Waiting for $svc to stabilize..."
+            for i in $(seq 1 20); do
+              STATUS=$(aws ecs describe-services --cluster $PROJECT-cluster --services $svc --query 'services[0].deployments[?status==`PRIMARY`].rolloutState' --output text)
+              RUNNING=$(aws ecs describe-services --cluster $PROJECT-cluster --services $svc --query 'services[0].runningCount' --output text)
+              DESIRED=$(aws ecs describe-services --cluster $PROJECT-cluster --services $svc --query 'services[0].desiredCount' --output text)
+              echo "  [$i/20] $svc: rollout=$STATUS running=$RUNNING/$DESIRED"
+              if [ "$RUNNING" = "$DESIRED" ] && [ "$RUNNING" != "0" ]; then
+                echo "✅ $svc is healthy"
+                return 0
+              fi
+              sleep 15
+            done
+            echo "❌ $svc did not stabilize — checking task failures..."
+            aws ecs describe-services --cluster $PROJECT-cluster --services $svc --query 'services[0].events[:5]'
+            TASK_ARNS=$(aws ecs list-tasks --cluster $PROJECT-cluster --service-name $svc --desired-status STOPPED --query 'taskArns[:2]' --output text)
+            if [ -n "$TASK_ARNS" ]; then
+              aws ecs describe-tasks --cluster $PROJECT-cluster --tasks $TASK_ARNS --query 'tasks[].{stop:stoppedReason,container:containers[0].reason}'
+            fi
+            return 1
+          }
+
           echo "1️⃣ Deploying product-service..."
-          aws ecs update-service --cluster $PROJECT-cluster --service product-service --force-new-deployment
-          aws ecs wait services-stable --cluster $PROJECT-cluster --services product-service
-          echo "✅ product-service is healthy"
+          aws ecs update-service --cluster $PROJECT-cluster --service product-service --force-new-deployment > /dev/null
+          wait_stable product-service
 
           echo "2️⃣ Deploying order-service..."
-          aws ecs update-service --cluster $PROJECT-cluster --service order-service --force-new-deployment
-          aws ecs wait services-stable --cluster $PROJECT-cluster --services order-service
-          echo "✅ order-service is healthy"
+          aws ecs update-service --cluster $PROJECT-cluster --service order-service --force-new-deployment > /dev/null
+          wait_stable order-service
 
           echo "3️⃣ Deploying frontend..."
-          aws ecs update-service --cluster $PROJECT-cluster --service frontend --force-new-deployment
-          aws ecs wait services-stable --cluster $PROJECT-cluster --services frontend
-          echo "✅ frontend is healthy"
+          aws ecs update-service --cluster $PROJECT-cluster --service frontend --force-new-deployment > /dev/null
+          wait_stable frontend
 
           echo "4️⃣ Deploying observability..."
-          aws ecs update-service --cluster $PROJECT-cluster --service observability --force-new-deployment
-          aws ecs wait services-stable --cluster $PROJECT-cluster --services observability
-          echo "✅ observability is healthy"
+          aws ecs update-service --cluster $PROJECT-cluster --service observability --force-new-deployment > /dev/null
+          wait_stable observability
 
       - name: ✅ Verify Deployment
         env:
