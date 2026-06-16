@@ -128,6 +128,8 @@ Observability → order-service:4002/metrics    (Prometheus scrape)
 
 ### 2. Product Service (Node.js/Express)
 
+![Admin Products](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/admin_prodcuts.png)
+
 | Property | Value |
 |----------|-------|
 | Port | 4001 |
@@ -148,6 +150,8 @@ Observability → order-service:4002/metrics    (Prometheus scrape)
 ---
 
 ### 3. Order Service (Node.js/Express + Stripe)
+
+![Admin Orders](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/admin_orders.png)
 
 | Property | Value |
 |----------|-------|
