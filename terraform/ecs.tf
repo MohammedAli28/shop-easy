@@ -1,5 +1,13 @@
 resource "aws_ecs_cluster" "main" {
   name = "${var.project}-cluster"
+
+  service_connect_defaults {
+    namespace = aws_service_discovery_http_namespace.main.arn
+  }
+}
+
+resource "aws_service_discovery_http_namespace" "main" {
+  name = var.project
 }
 
 resource "aws_security_group" "ecs" {
@@ -11,6 +19,14 @@ resource "aws_security_group" "ecs" {
     to_port         = 65535
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
+    description = "ECS to ECS (Service Connect + Prometheus)"
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    self        = true
   }
 
   egress {
@@ -39,7 +55,7 @@ resource "aws_ecs_task_definition" "product" {
   container_definitions = jsonencode([{
     name  = "product-service"
     image = "${aws_ecr_repository.product.repository_url}:latest"
-    portMappings = [{ containerPort = 4001 }]
+    portMappings = [{ containerPort = 4001, name = "http", protocol = "tcp" }]
     environment = [
       { name = "DB_HOST", value = aws_db_instance.main.address },
       { name = "DB_USER", value = "admin" },
@@ -76,6 +92,19 @@ resource "aws_ecs_service" "product" {
     container_name   = "product-service"
     container_port   = 4001
   }
+
+  service_connect_configuration {
+    enabled   = true
+    namespace = aws_service_discovery_http_namespace.main.arn
+    service {
+      port_name      = "http"
+      discovery_name = "product-service"
+      client_alias {
+        port     = 4001
+        dns_name = "product-service"
+      }
+    }
+  }
 }
 
 # ─── Order Service (orders + payments) ───
@@ -91,13 +120,15 @@ resource "aws_ecs_task_definition" "order" {
   container_definitions = jsonencode([{
     name  = "order-service"
     image = "${aws_ecr_repository.order.repository_url}:latest"
-    portMappings = [{ containerPort = 4002 }]
+    portMappings = [{ containerPort = 4002, name = "http", protocol = "tcp" }]
     environment = [
       { name = "DB_HOST", value = aws_db_instance.main.address },
       { name = "DB_USER", value = "admin" },
       { name = "DB_PASSWORD", value = var.db_password },
       { name = "DB_NAME", value = "shop_easy" },
-      { name = "STRIPE_SECRET_KEY", value = var.stripe_secret_key }
+      { name = "STRIPE_SECRET_KEY", value = var.stripe_secret_key },
+      { name = "ADMIN_USERNAME", value = "admin" },
+      { name = "ADMIN_PASSWORD", value = "ShopEasy2026" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -128,6 +159,19 @@ resource "aws_ecs_service" "order" {
     target_group_arn = aws_lb_target_group.order.arn
     container_name   = "order-service"
     container_port   = 4002
+  }
+
+  service_connect_configuration {
+    enabled   = true
+    namespace = aws_service_discovery_http_namespace.main.arn
+    service {
+      port_name      = "http"
+      discovery_name = "order-service"
+      client_alias {
+        port     = 4002
+        dns_name = "order-service"
+      }
+    }
   }
 }
 
@@ -177,6 +221,60 @@ resource "aws_ecs_service" "frontend" {
   }
 }
 
+# ─── Observability Service (Grafana + Prometheus) ───
+resource "aws_ecs_task_definition" "observability" {
+  family                   = "${var.project}-observability"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn            = aws_iam_role.ecs_task.arn
+
+  container_definitions = jsonencode([{
+    name  = "observability"
+    image = "${aws_ecr_repository.observability.repository_url}:latest"
+    portMappings = [{ containerPort = 3000 }]
+    environment = [
+      { name = "PAGERDUTY_INTEGRATION_KEY", value = var.pagerduty_integration_key }
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/${var.project}"
+        "awslogs-region"        = var.region
+        "awslogs-stream-prefix" = "observability"
+      }
+    }
+  }])
+}
+
+resource "aws_ecs_service" "observability" {
+  name                   = "observability"
+  cluster                = aws_ecs_cluster.main.id
+  task_definition        = aws_ecs_task_definition.observability.arn
+  desired_count          = 1
+  launch_type            = "FARGATE"
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = aws_subnet.private[*].id
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.observability.arn
+    container_name   = "observability"
+    container_port   = 3000
+  }
+
+  service_connect_configuration {
+    enabled   = true
+    namespace = aws_service_discovery_http_namespace.main.arn
+  }
+}
+
 # ─── ECR Repositories ───
 resource "aws_ecr_repository" "product" {
   name         = "${var.project}/product-service"
@@ -195,6 +293,11 @@ resource "aws_ecr_repository" "frontend" {
 
 resource "aws_ecr_repository" "db_init" {
   name         = "${var.project}/db-init"
+  force_delete = true
+}
+
+resource "aws_ecr_repository" "observability" {
+  name         = "${var.project}/observability"
   force_delete = true
 }
 

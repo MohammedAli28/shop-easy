@@ -1,0 +1,193 @@
+{
+  "uid": "shop-easy-infra",
+  "title": "ShopEasy — Infrastructure & ECS",
+  "tags": ["shop-easy", "infrastructure", "ecs"],
+  "timezone": "browser",
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "🟢 Product Service",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "up{job=\"product-service\"}", "legendFormat": "Status" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }],
+          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" }
+    },
+    {
+      "id": 2,
+      "title": "🟢 Order Service",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "up{job=\"order-service\"}", "legendFormat": "Status" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }],
+          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" }
+    },
+    {
+      "id": 3,
+      "title": "🖥️ Product Service — CPU Usage",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "rate(product_svc_process_cpu_seconds_total[5m]) * 100", "legendFormat": "CPU %" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 80 }] }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "🖥️ Order Service — CPU Usage",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "rate(order_svc_process_cpu_seconds_total[5m]) * 100", "legendFormat": "CPU %" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 80 }] }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "💾 Product Service — Memory",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "product_svc_process_resident_memory_bytes / 1024 / 1024", "legendFormat": "RSS MB" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes", "min": 0, "max": 512,
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 256 }, { "color": "red", "value": 400 }] }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "💾 Order Service — Memory",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "order_svc_process_resident_memory_bytes / 1024 / 1024", "legendFormat": "RSS MB" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes", "min": 0, "max": 512,
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 256 }, { "color": "red", "value": 400 }] }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "📈 CPU Usage Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "rate(product_svc_process_cpu_seconds_total[5m]) * 100", "legendFormat": "Product Service" },
+        { "expr": "rate(order_svc_process_cpu_seconds_total[5m]) * 100", "legendFormat": "Order Service" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "custom": { "fillOpacity": 15, "lineWidth": 2, "spanNulls": true } }
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } }
+    },
+    {
+      "id": 8,
+      "title": "📈 Memory Usage Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "product_svc_process_resident_memory_bytes / 1024 / 1024", "legendFormat": "Product Service" },
+        { "expr": "order_svc_process_resident_memory_bytes / 1024 / 1024", "legendFormat": "Order Service" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "decmbytes", "custom": { "fillOpacity": 15, "lineWidth": 2, "spanNulls": true } }
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } }
+    },
+    {
+      "id": 9,
+      "title": "🌐 HTTP Request Rate (per service)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(product_svc_http_requests_total[5m])) * 60", "legendFormat": "Product Service" },
+        { "expr": "sum(rate(order_svc_http_requests_total[5m])) * 60", "legendFormat": "Order Service" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqpm", "custom": { "fillOpacity": 20, "lineWidth": 2 } }
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } }
+    },
+    {
+      "id": 10,
+      "title": "⏱️ Response Time P95 (per service)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(product_svc_http_duration_seconds_bucket[5m]))", "legendFormat": "Product Service P95" },
+        { "expr": "histogram_quantile(0.95, rate(order_svc_http_duration_seconds_bucket[5m]))", "legendFormat": "Order Service P95" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "red", "value": 1 }] }
+        }
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } }
+    },
+    {
+      "id": 11,
+      "title": "🚨 HTTP Errors (4xx + 5xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(product_svc_http_requests_total{status=~\"4..|5..\"}[5m])) * 60", "legendFormat": "Product Service Errors" },
+        { "expr": "sum(rate(order_svc_http_requests_total{status=~\"4..|5..\"}[5m])) * 60", "legendFormat": "Order Service Errors" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqpm", "custom": { "fillOpacity": 30, "lineWidth": 2 }, "color": { "mode": "palette-classic" } }
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+    {
+      "id": 12,
+      "title": "🔄 Active Handles & Event Loop Lag",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "product_svc_nodejs_active_handles_total", "legendFormat": "Product — Active Handles" },
+        { "expr": "order_svc_nodejs_active_handles_total", "legendFormat": "Order — Active Handles" },
+        { "expr": "rate(product_svc_nodejs_eventloop_lag_seconds_sum[5m])", "legendFormat": "Product — Event Loop Lag" },
+        { "expr": "rate(order_svc_nodejs_eventloop_lag_seconds_sum[5m])", "legendFormat": "Order — Event Loop Lag" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "fillOpacity": 10, "lineWidth": 2 } }
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+    }
+  ],
+  "schemaVersion": 39
+}

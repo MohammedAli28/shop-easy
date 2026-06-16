@@ -56,7 +56,8 @@ jobs:
           terraform init -backend-config="bucket=$TF_STATE_BUCKET"
           terraform apply -auto-approve \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="stripe_secret_key=${{ secrets.STRIPE_SECRET_KEY }}"
+            -var="stripe_secret_key=${{ secrets.STRIPE_SECRET_KEY }}" \
+            -var="pagerduty_integration_key=${{ secrets.PAGERDUTY_INTEGRATION_KEY }}"
           echo "ALB_DNS=$(terraform output -raw alb_dns)" >> $GITHUB_ENV
           echo "RDS_HOST=$(terraform output -raw rds_endpoint)" >> $GITHUB_ENV
 
@@ -74,6 +75,10 @@ jobs:
               -t $REGISTRY/$PROJECT/$svc:latest ./$svc
             docker push $REGISTRY/$PROJECT/$svc:latest
           done
+          echo "🔨 Building observability..."
+          docker build --platform linux/amd64 --provenance=false --no-cache \
+            -t $REGISTRY/$PROJECT/observability:latest ./observability-service
+          docker push $REGISTRY/$PROJECT/observability:latest
           echo "🔨 Building frontend..."
           docker build --platform linux/amd64 --provenance=false --no-cache \
             --build-arg REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
@@ -94,16 +99,48 @@ jobs:
           aws ecs wait tasks-stopped --cluster $PROJECT-cluster --tasks $TASK_ARN
           echo "✅ Database schema loaded"
 
-      - name: 🚀 Deploy Services
+      - name: 🚀 Deploy Services (1-by-1, wait for stable)
+        env:
+          AWS_PAGER: ""
         run: |
-          echo "Deploying product-service..."
-          aws ecs update-service --cluster $PROJECT-cluster --service product-service --force-new-deployment
-          sleep 30
-          echo "Deploying order-service..."
-          aws ecs update-service --cluster $PROJECT-cluster --service order-service --force-new-deployment
-          sleep 30
-          echo "Deploying frontend..."
-          aws ecs update-service --cluster $PROJECT-cluster --service frontend --force-new-deployment
+          wait_stable() {
+            local svc=$1
+            echo "⏳ Waiting for $svc to stabilize..."
+            for i in $(seq 1 20); do
+              STATUS=$(aws ecs describe-services --cluster $PROJECT-cluster --services $svc --query 'services[0].deployments[?status==`PRIMARY`].rolloutState' --output text)
+              RUNNING=$(aws ecs describe-services --cluster $PROJECT-cluster --services $svc --query 'services[0].runningCount' --output text)
+              DESIRED=$(aws ecs describe-services --cluster $PROJECT-cluster --services $svc --query 'services[0].desiredCount' --output text)
+              echo "  [$i/20] $svc: rollout=$STATUS running=$RUNNING/$DESIRED"
+              if [ "$RUNNING" = "$DESIRED" ] && [ "$RUNNING" != "0" ]; then
+                echo "✅ $svc is healthy"
+                return 0
+              fi
+              sleep 15
+            done
+            echo "❌ $svc did not stabilize — checking task failures..."
+            aws ecs describe-services --cluster $PROJECT-cluster --services $svc --query 'services[0].events[:5]'
+            TASK_ARNS=$(aws ecs list-tasks --cluster $PROJECT-cluster --service-name $svc --desired-status STOPPED --query 'taskArns[:2]' --output text)
+            if [ -n "$TASK_ARNS" ]; then
+              aws ecs describe-tasks --cluster $PROJECT-cluster --tasks $TASK_ARNS --query 'tasks[].{stop:stoppedReason,container:containers[0].reason}'
+            fi
+            return 1
+          }
+
+          echo "1️⃣ Deploying product-service..."
+          aws ecs update-service --cluster $PROJECT-cluster --service product-service --force-new-deployment > /dev/null
+          wait_stable product-service
+
+          echo "2️⃣ Deploying order-service..."
+          aws ecs update-service --cluster $PROJECT-cluster --service order-service --force-new-deployment > /dev/null
+          wait_stable order-service
+
+          echo "3️⃣ Deploying frontend..."
+          aws ecs update-service --cluster $PROJECT-cluster --service frontend --force-new-deployment > /dev/null
+          wait_stable frontend
+
+          echo "4️⃣ Deploying observability..."
+          aws ecs update-service --cluster $PROJECT-cluster --service observability --force-new-deployment > /dev/null
+          wait_stable observability
 
       - name: ✅ Verify Deployment
         env:
@@ -111,11 +148,32 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
         run: |
+          echo "⏳ Waiting 30s for ALB targets to register..."
+          sleep 30
+          echo "🔍 Verifying endpoints..."
+          for i in 1 2 3 4 5; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/products)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ /products → 200 OK"
+              break
+            fi
+            echo "  Attempt $i: got $HTTP_CODE, retrying in 15s..."
+            sleep 15
+          done
+          ORDERS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/orders/stats/summary)
+          echo "✅ /orders/stats/summary → $ORDERS_CODE"
+          GRAFANA_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/grafana/login)
+          echo "✅ /grafana/login → $GRAFANA_CODE"
           echo "### 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
           echo "**App URL:** http://$ALB_DNS" >> $GITHUB_STEP_SUMMARY
-          echo "**Dashboard:** https://${{ env.AWS_REGION }}.console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#dashboards:name=$PROJECT-orders" >> $GITHUB_STEP_SUMMARY
+          echo "**Grafana:** http://$ALB_DNS/grafana (admin / ShopEasy2026)" >> $GITHUB_STEP_SUMMARY
+          echo "**CloudWatch:** https://${{ env.AWS_REGION }}.console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#dashboards:name=$PROJECT-orders" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> Services deployed. Allow 2-3 min for tasks to become healthy." >> $GITHUB_STEP_SUMMARY
+          echo "| Endpoint | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| /products | $HTTP_CODE |" >> $GITHUB_STEP_SUMMARY
+          echo "| /orders/stats/summary | $ORDERS_CODE |" >> $GITHUB_STEP_SUMMARY
+          echo "| /grafana/login | $GRAFANA_CODE |" >> $GITHUB_STEP_SUMMARY
 
   destroy:
     name: 💣 Destroy Everything
@@ -146,7 +204,8 @@ jobs:
           terraform init -backend-config="bucket=$TF_STATE_BUCKET"
           terraform destroy -auto-approve \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="stripe_secret_key=${{ secrets.STRIPE_SECRET_KEY }}"
+            -var="stripe_secret_key=${{ secrets.STRIPE_SECRET_KEY }}" \
+            -var="pagerduty_integration_key=${{ secrets.PAGERDUTY_INTEGRATION_KEY }}"
 
       - name: 🪣 Delete State Bucket
         run: |

@@ -15,15 +15,19 @@
 7. [Payment Flow (Stripe)](#payment-flow-stripe)
 8. [Deployment Flow (CI/CD)](#deployment-flow-cicd)
 9. [Infrastructure (Terraform)](#infrastructure-terraform)
-10. [Monitoring (CloudWatch)](#monitoring-cloudwatch)
-11. [Networking & Security](#networking--security)
-12. [Local Development](#local-development)
-13. [Key Design Decisions](#key-design-decisions)
-14. [Troubleshooting](#troubleshooting)
+10. [Observability (Grafana + Prometheus + PagerDuty)](#observability)
+11. [Monitoring (CloudWatch)](#monitoring-cloudwatch)
+12. [Networking & Security](#networking--security)
+13. [Local Development](#local-development)
+14. [Key Design Decisions](#key-design-decisions)
+15. [Security Hardening](#security-hardening)
+16. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Project Overview
+
+![Shop Easy Live Demo](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/demo.jpg)
 
 Shop Easy is a **production-grade e-commerce application** built with microservices architecture, deployed on AWS ECS Fargate with Stripe payment integration and real-time CloudWatch monitoring.
 
@@ -33,7 +37,10 @@ Shop Easy is a **production-grade e-commerce application** built with microservi
 - Infrastructure as Code with Terraform
 - 1-click CI/CD with GitHub Actions
 - Structured logging → CloudWatch dashboards
-- Cost-optimized AWS architecture (no NAT Gateway)
+- Full observability: Grafana + Prometheus metrics + PagerDuty alerting
+- ECS Service Connect (Cloud Map) for internal service discovery
+- Security hardening: input validation, body limits, safe deletes
+- Sequential deployment with `ecs wait services-stable`
 
 ---
 
@@ -51,7 +58,8 @@ Shop Easy is a **production-grade e-commerce application** built with microservi
 │  │  │  │ • Frontend (Nginx) │  │  │     ┌── ALB ──────┐     │  │ │
 │  │  │  │ • Product Service  │  │  │     │ Port 80     │     │  │ │
 │  │  │  │ • Order Service    │  │  │     │ Path-based  │     │  │ │
-│  │  │  └────────────────────┘  │  │     │ Routing     │     │  │ │
+│  │  │  │ • Observability    │  │  │     │ Routing     │     │  │ │
+│  │  │  └────────────────────┘  │  │     │             │     │  │ │
 │  │  │                          │  │     └─────────────┘     │  │ │
 │  │  │  ┌── RDS MySQL ──────┐  │  │                          │  │ │
 │  │  │  │ db.t3.micro       │  │  │                          │  │ │
@@ -73,7 +81,14 @@ Shop Easy is a **production-grade e-commerce application** built with microservi
 User → Browser → ALB (port 80) → Path-based routing:
    /products*, /cart*    → Product Service (4001)
    /orders*, /payments*  → Order Service (4002)
+   /grafana*             → Observability Service (3000)
    /*                    → Frontend/Nginx (80)
+```
+
+**Internal (ECS Service Connect via Cloud Map):**
+```
+Observability → product-service:4001/metrics  (Prometheus scrape)
+Observability → order-service:4002/metrics    (Prometheus scrape)
 ```
 
 ---
@@ -81,6 +96,8 @@ User → Browser → ALB (port 80) → Path-based routing:
 ## Service Details
 
 ### 1. Frontend (React + Nginx)
+
+![Admin Panel](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/admin_panel.jpg)
 
 | Property | Value |
 |----------|-------|
@@ -111,6 +128,8 @@ User → Browser → ALB (port 80) → Path-based routing:
 
 ### 2. Product Service (Node.js/Express)
 
+![Admin Products](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/admin_prodcuts.png)
+
 | Property | Value |
 |----------|-------|
 | Port | 4001 |
@@ -132,11 +151,13 @@ User → Browser → ALB (port 80) → Path-based routing:
 
 ### 3. Order Service (Node.js/Express + Stripe)
 
+![Admin Orders](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/admin_orders.png)
+
 | Property | Value |
 |----------|-------|
 | Port | 4002 |
-| Tech | Node.js, Express, mysql2/promise, Stripe SDK |
-| Routes | /orders, /payments |
+| Tech | Node.js, Express, mysql2/promise, Stripe SDK, prom-client |
+| Routes | /orders, /payments, /auth, /metrics |
 | DB Tables | orders, order_items, payments |
 
 **Responsibilities:**
@@ -156,6 +177,48 @@ const log = (event, data) => console.log(JSON.stringify({
 ```
 
 Emits: `ORDER_PENDING`, `ORDER_BOOKED`, `ORDER_FAILED`, `ORDER_ERROR`
+
+**Prometheus Metrics Exposed:**
+- `orders_created_total` — Counter, incremented on each new order
+- `orders_paid_total` — Counter, incremented on successful payment confirmation
+- `orders_failed_total` — Counter, incremented on failed payment
+- `payment_amount_dollars` — Histogram, records payment amounts
+
+**Security Hardening:**
+- Request body limit: 1MB (`express.json({ limit: '1mb' })`)
+- Input sanitization: `sanitize()` function trims and caps all string inputs
+- Status validation: PUT `/orders/:id/status` only accepts `pending|paid|failed|shipped|delivered`
+- DB connection: `connectTimeout: 30000`, `enableKeepAlive: true`
+
+---
+
+### 4. Observability Service (Grafana + Prometheus)
+
+| Property | Value |
+|----------|-------|
+| Ports | 3000 (Grafana), 9090 (Prometheus) |
+| Tech | Grafana 10.4, Prometheus 2.x |
+| Route | /grafana* (via ALB) |
+| Discovery | ECS Service Connect (Cloud Map namespace) |
+
+**Responsibilities:**
+- Scrape `/metrics` from product-service and order-service every 15s
+- Render 2 pre-provisioned Grafana dashboards (Business + Infrastructure)
+- Evaluate alert rules (orders_failed_total > 5 → PagerDuty)
+- Serve Grafana at sub-path `/grafana/`
+
+**Architecture:**
+- Single container runs both Prometheus and Grafana
+- `start.sh` substitutes `PRODUCT_TARGET` / `ORDER_TARGET` env vars into `prometheus.yml` at runtime
+- Datasource provisioned with explicit `uid: prometheus`
+- Alert contact point: PagerDuty Events API v2
+
+**Grafana Config:**
+- `GF_SERVER_ROOT_URL=http://localhost:3000/grafana/`
+- `GF_SERVER_SERVE_FROM_SUB_PATH=true`
+- `GF_UNIFIED_ALERTING_ENABLED=true`
+- `GF_ALERTING_ENABLED=false` (legacy alerting off)
+- Default credentials: `admin` / `ShopEasy2026`
 
 ---
 
@@ -212,21 +275,35 @@ Payment Status ENUM: 'pending' | 'completed' | 'failed'
 | GET | `/health` | Health check (DB connectivity) |
 | GET | `/products` | List all products |
 | GET | `/products/:id` | Get single product |
+| POST | `/products` | Create product (admin) |
+| PUT | `/products/:id` | Update product (admin) |
+| DELETE | `/products/:id` | Safe delete (soft-delete if has orders) |
+| GET | `/categories` | List all categories |
+| POST | `/categories` | Create category (admin) |
+| PUT | `/categories/:id` | Update category (admin) |
+| DELETE | `/categories/:id` | Delete category (admin) |
 | GET | `/cart/:userId` | Get user's cart with product details |
 | POST | `/cart` | Add to cart (or increment quantity) |
 | DELETE | `/cart/:id` | Remove cart item |
+| GET | `/metrics` | Prometheus metrics (http_requests_total, http_duration_seconds) |
 
 ### Order Service (port 4002)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Health check (DB connectivity) |
+| POST | `/auth/admin` | Admin login |
+| GET | `/orders/stats/summary` | Dashboard stats |
+| GET | `/orders/stats/timeseries` | Revenue chart data (?minutes=60) |
+| GET | `/orders/all` | All orders (admin) |
+| GET | `/orders/by-email/:email` | Customer orders |
 | GET | `/orders/:userId` | Get user's order history |
 | POST | `/orders` | Create order from cart (transaction) |
+| PUT | `/orders/:id/status` | Update order status (validated whitelist) |
 | POST | `/payments/create-intent` | Create Stripe PaymentIntent |
 | POST | `/payments/confirm` | Confirm payment after Stripe success |
 | POST | `/payments/failed` | Log frontend card error to backend |
-| POST | `/payments` | Legacy payment endpoint (fallback) |
+| GET | `/metrics` | Prometheus metrics (orders_created/paid/failed, payment_amount) |
 
 ---
 
@@ -244,6 +321,8 @@ User clicks product card → Modal opens (client-side state)
 
 ### Flow 2: Add to Cart
 
+![Cart](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/cart.png)
+
 ```
 User clicks "Add" → POST /cart {user_id, product_id, quantity: 1}
                         ↓
@@ -257,6 +336,8 @@ Notification: "✓ Added to cart!"
 ```
 
 ### Flow 3: Checkout & Payment (detailed)
+
+![Checkout](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/Checkout.png)
 
 ```
 ┌─── FRONTEND ───────────────────────────────────────────────────┐
@@ -317,6 +398,10 @@ Notification: "✓ Added to cart!"
 ```
 
 ### Flow 4: View Orders
+
+![Order Status](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/order_status.png)
+
+![Receipt](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/receipt.png)
 
 ```
 User clicks "Orders" → GET /orders/1 → Display list with:
@@ -400,10 +485,11 @@ stripe.paymentIntents.create({
 └──────────────────────────────┬───────────────────────────────┘
                                ▼
 ┌─── Step 3: Build Docker Images ──────────────────────────────┐
-│ • Build 4 images (--platform linux/amd64):                    │
+│ • Build 5 images (--platform linux/amd64):                    │
 │   - product-service                                           │
 │   - order-service                                             │
 │   - frontend (with STRIPE_PUBLISHABLE_KEY build arg)          │
+│   - observability                                             │
 │   - db-init                                                   │
 │ • Push all to ECR                                             │
 └──────────────────────────────┬───────────────────────────────┘
@@ -414,19 +500,19 @@ stripe.paymentIntents.create({
 │ • aws ecs wait tasks-stopped                                  │
 └──────────────────────────────┬───────────────────────────────┘
                                ▼
-┌─── Step 5: Deploy Services ──────────────────────────────────┐
-│ • aws ecs update-service --force-new-deployment (x3)          │
-│ • ECS pulls latest images from ECR                            │
-│ • Rolling update: new task up → health check → drain old      │
+┌─── Step 5: Deploy Services (Sequential, wait for stable) ─────┐
+│ • Deploy product-service → aws ecs wait services-stable        │
+│ • Deploy order-service → aws ecs wait services-stable          │
+│ • Deploy frontend → aws ecs wait services-stable               │
+│ • Deploy observability → aws ecs wait services-stable          │
 └──────────────────────────────┬───────────────────────────────┘
                                ▼
-┌─── Step 6: Credential Refresh ───────────────────────────────┐
-│ • Re-configure AWS credentials (sandbox tokens may expire)    │
-└──────────────────────────────┬───────────────────────────────┘
-                               ▼
-┌─── Step 7: Verify ───────────────────────────────────────────┐
-│ • aws ecs wait services-stable                                │
-│ • Output ALB URL + Dashboard URL to GitHub Summary            │
+┌─── Step 6: Verify ───────────────────────────────────────────┐
+│ • Wait 30s for ALB targets to register                        │
+│ • Retry /products (up to 5 attempts)                          │
+│ • Verify /orders/stats/summary                                │
+│ • Verify /grafana/login                                       │
+│ • Output ALB URL + Grafana URL to GitHub Summary              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -451,11 +537,11 @@ S3 bucket names are globally unique. `shop-easy-tf-state` would conflict across 
 
 | File | Creates |
 |------|---------|
-| `vpc.tf` | VPC, 2 public subnets, 2 private subnets, IGW, route table |
-| `alb.tf` | ALB, listener, 3 target groups, path-based routing rules |
-| `ecs.tf` | ECS cluster, 4 task definitions, 3 services, 4 ECR repos, security group, log group |
+| `vpc.tf` | VPC, 2 public subnets, 2 private subnets, IGW, NAT Gateway, route tables |
+| `alb.tf` | ALB, listener, 4 target groups, path-based routing rules (incl. /grafana*) |
+| `ecs.tf` | ECS cluster, 5 task definitions, 4 services, 5 ECR repos, Cloud Map namespace, Service Connect |
 | `rds.tf` | RDS MySQL instance, DB subnet group, security group |
-| `iam.tf` | ECS execution role (ECR pull + CloudWatch logs) |
+| `iam.tf` | ECS execution role + task role (ECR pull + CloudWatch logs + SSM) |
 | `dashboard.tf` | CloudWatch dashboard with 7 panels |
 | `backend.tf` | S3 backend configuration (bucket passed via CLI) |
 
@@ -482,10 +568,15 @@ VPC (10.0.0.0/16)
 │
 ├── RDS MySQL 8.0 (db.t3.micro, private, single-AZ)
 │
-├── ECR Repositories (4)
+├── Cloud Map Namespace (shop-easy.local)
+│   ├── product-service → port 4001
+│   └── order-service → port 4002
+│
+├── ECR Repositories (5)
 │   ├── shop-easy/product-service
 │   ├── shop-easy/order-service
 │   ├── shop-easy/frontend
+│   ├── shop-easy/observability
 │   └── shop-easy/db-init
 │
 └── CloudWatch
@@ -507,6 +598,78 @@ ECS SG:
 RDS SG:
   Inbound:  3306/tcp from ECS SG only
   Outbound: all traffic
+```
+
+---
+
+## Observability (Grafana + Prometheus + PagerDuty)
+
+### Architecture
+
+![Grafana Dashboard](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/grphana.jpg)
+
+```
+┌─── Observability Container ──────────────────────────────────┐
+│                                                               │
+│  ┌── Prometheus (port 9090) ──┐  ┌── Grafana (port 3000) ──┐│
+│  │ Scrapes every 15s:          │  │ 2 dashboards:           ││
+│  │ • product-service:4001      │  │ • Business Overview     ││
+│  │ • order-service:4002        │  │ • Infrastructure & ECS  ││
+│  │                             │  │                         ││
+│  │ Service discovery via       │  │ Alert rules:            ││
+│  │ ECS Service Connect         │  │ • orders_failed > 5     ││
+│  └─────────────────────────────┘  │   → PagerDuty incident  ││
+│                                    └─────────────────────────┘│
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Prometheus Metrics
+
+| Service | Metric | Type | Description |
+|---------|--------|------|-------------|
+| order-service | `orders_created_total` | Counter | Total orders created |
+| order-service | `orders_paid_total` | Counter | Total successful payments |
+| order-service | `orders_failed_total` | Counter | Total failed payments |
+| order-service | `payment_amount_dollars` | Histogram | Payment amounts in USD |
+| product-service | `http_requests_total` | Counter | HTTP requests by method/route/status |
+| product-service | `http_duration_seconds` | Histogram | Request latency |
+
+### Grafana Dashboards
+
+**Business Overview:**
+- Booking Amount (total revenue from successful payments)
+- Booking Count — Booked / Pending / Failed (stat panels)
+- Revenue Over Time (time series, 5m intervals)
+- Order Status Distribution (pie chart)
+
+**Infrastructure & ECS:**
+
+![Infrastructure & ECS Dashboard](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/Infrastructure_ECS.png)
+
+- Service UP/DOWN status (per target)
+- HTTP Request Rate (requests/second)
+- P95 Response Time (95th percentile latency)
+- Error Rate (non-2xx responses)
+
+### PagerDuty Integration
+
+- **Contact Point:** PagerDuty Events API v2
+- **Alert Rule:** `sum(orders_failed_total) > 5` evaluated every 1m, fires after 5m
+- **Integration Key:** Passed via `PAGERDUTY_INTEGRATION_KEY` env var
+
+### ECS Service Connect (How Prometheus Finds Services)
+
+```
+Terraform creates:
+  → aws_service_discovery_http_namespace "shop-easy.local"
+  → Service Connect enabled on product-service, order-service, observability
+  → Port names: "product-http" (4001), "order-http" (4002)
+
+At runtime:
+  → Prometheus targets configured via env vars:
+     PRODUCT_TARGET=product-service:4001
+     ORDER_TARGET=order-service:4002
+  → start.sh uses sed to substitute into prometheus.yml
 ```
 
 ---
@@ -596,7 +759,7 @@ open http://localhost:3000
 ### Docker Compose Architecture (Local)
 
 ```
-┌─── docker-compose ────────────────────────────┐
+┌─── docker-compose (5 services) ────────────────┐
 │                                                │
 │  db (MySQL 8.0)                                │
 │    └── mounts database/schema.sql              │
@@ -604,15 +767,21 @@ open http://localhost:3000
 │                                                │
 │  product-service (port 4001)                   │
 │    └── depends_on: db (service_healthy)        │
+│    └── /metrics endpoint (prom-client)         │
 │                                                │
 │  order-service (port 4002)                     │
 │    └── depends_on: db (service_healthy)        │
 │    └── STRIPE_SECRET_KEY env var               │
+│    └── /metrics endpoint (prom-client)         │
 │                                                │
 │  frontend (port 3000 → nginx:80)              │
-│    └── nginx.local.conf (proxy to services)    │
+│    └── nginx.local.conf (resolver + proxy)     │
 │    └── REACT_APP_STRIPE_PUBLISHABLE_KEY arg    │
 │    └── depends_on: both services               │
+│                                                │
+│  observability (Grafana:3001, Prometheus:9090)  │
+│    └── scrapes product-service & order-service  │
+│    └── 2 dashboards + PagerDuty alerting       │
 └────────────────────────────────────────────────┘
 ```
 
@@ -622,8 +791,10 @@ open http://localhost:3000
 |--------|----------------------|-----------|
 | DB | MySQL container | RDS instance |
 | Schema | Volume mount → auto-init | db-init ECS RunTask |
-| Networking | Docker bridge network | VPC + ALB routing |
-| Frontend proxy | nginx.local.conf | ALB path rules |
+| Networking | Docker bridge network | VPC + ALB + Service Connect |
+| Frontend proxy | nginx.local.conf (resolver) | ALB path rules |
+| Observability | localhost:3001 / :9090 | /grafana/* via ALB |
+| Service discovery | Docker DNS (container names) | Cloud Map namespace |
 | Stripe key | Build arg from env | Build arg from GitHub Secret |
 | Logs | Docker stdout | CloudWatch via awslogs driver |
 
@@ -650,19 +821,52 @@ For demo scale, MySQL is sufficient. Redis would add cost (~$13/mo) and complexi
 
 ### 4. All Services Share One Log Group
 
-Single log group `/ecs/shop-easy` with different stream prefixes (`product/`, `order/`, `frontend/`). Simplifies CloudWatch queries — one `SOURCE` for all dashboard widgets.
+Single log group `/ecs/shop-easy` with different stream prefixes (`product/`, `order/`, `frontend/`, `observability/`). Simplifies CloudWatch queries — one `SOURCE` for all dashboard widgets.
 
-### 5. `force_delete = true` on ECR
+### 5. Observability as a Single Container
+
+Running Grafana + Prometheus in one container simplifies deployment (1 task definition, 1 ECR image) and reduces cost. Trade-off: can't scale them independently, but at this scale it's fine.
+
+### 6. ECS Service Connect Over Static IPs
+
+Prometheus needs to resolve `product-service:4001` and `order-service:4002`. ECS Service Connect (via Cloud Map) provides DNS-based discovery that works across task replacements — no hardcoded IPs.
+
+### 7. Sequential Deployment with `ecs wait`
+
+Deploying all 4 services simultaneously can spike CPU/memory beyond sandbox limits. Sequential deployment with `aws ecs wait services-stable` ensures each service is healthy before starting the next.
+
+### 8. `force_delete = true` on ECR
 
 Allows `terraform destroy` to delete ECR repos even with images inside. Without this, destroy would fail with "repository not empty" error.
 
-### 6. Frontend Calls Backend on Stripe Error
+### 9. Frontend Calls Backend on Stripe Error
 
 Stripe validates cards client-side. Declined cards never reach the backend. Without the explicit `POST /payments/failed` call, the dashboard would show 0 failures — misleading.
 
-### 7. Health Check Queries Database
+### 10. Health Check Queries Database
 
 `/health` does `SELECT 1` against MySQL. If DB is down, health check fails → ALB routes away → ECS replaces task. A simple `return 200` would mask database issues.
+
+### 11. Safe Product Delete
+
+If a product has associated `order_items`, DELETE sets `stock = 0` (soft-delete) instead of removing the row. This preserves order history integrity while hiding the product from the catalog.
+
+---
+
+## Security Hardening
+
+### Input Validation
+- **Body size limit:** `express.json({ limit: '1mb' })` on both services
+- **Status whitelist:** PUT `/orders/:id/status` rejects any status not in `['pending','paid','failed','shipped','delivered']`
+- **Input sanitization:** All string inputs trimmed, length-capped at 500 chars
+
+### DB Connection Resilience
+- `connectTimeout: 30000` (30 seconds)
+- `enableKeepAlive: true` (prevents connection drops)
+
+### Nginx DNS Caching Fix (Local)
+- Frontend nginx uses `resolver 127.0.0.11 valid=10s` with variable-based `proxy_pass`
+- Prevents 502 errors when backend containers restart (Docker DNS caching issue)
 
 ---
 
@@ -862,4 +1066,4 @@ ps aux
 
 ---
 
-*This documentation reflects the actual implementation in the `feature/stripe-monitoring` branch.*
+*This documentation reflects the actual implementation in the `feature/observability-stack` branch.*

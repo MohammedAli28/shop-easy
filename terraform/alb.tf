@@ -44,7 +44,11 @@ resource "aws_lb_target_group" "frontend" {
   target_type = "ip"
 
   health_check {
-    path = "/"
+    path                = "/"
+    interval            = 30
+    timeout             = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 5
   }
 }
 
@@ -56,7 +60,11 @@ resource "aws_lb_target_group" "product" {
   target_type = "ip"
 
   health_check {
-    path = "/health"
+    path                = "/health"
+    interval            = 30
+    timeout             = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 5
   }
 }
 
@@ -68,7 +76,28 @@ resource "aws_lb_target_group" "order" {
   target_type = "ip"
 
   health_check {
-    path = "/health"
+    path                = "/health"
+    interval            = 30
+    timeout             = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 5
+  }
+}
+
+resource "aws_lb_target_group" "observability" {
+  name        = "${var.project}-observe-tg"
+  port        = 3000
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    path                = "/grafana/api/health"
+    interval            = 30
+    timeout             = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 6
+    matcher             = "200"
   }
 }
 
@@ -84,7 +113,7 @@ resource "aws_lb_listener_rule" "products" {
 
   condition {
     path_pattern {
-      values = ["/products*", "/cart*"]
+      values = ["/products*", "/cart*", "/categories*"]
     }
   }
 }
@@ -100,7 +129,23 @@ resource "aws_lb_listener_rule" "orders" {
 
   condition {
     path_pattern {
-      values = ["/orders*", "/payments*"]
+      values = ["/orders*", "/payments*", "/auth*"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "observability" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 5
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.observability.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/grafana*"]
     }
   }
 }
