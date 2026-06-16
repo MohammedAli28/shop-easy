@@ -53,3 +53,14 @@ services:
     depends_on:
       - product-service
       - order-service
+
+  observability:
+    build: ./observability-service
+    ports:
+      - "3001:3000"
+      - "9090:9090"
+    environment:
+      PAGERDUTY_INTEGRATION_KEY: ${PAGERDUTY_INTEGRATION_KEY:-test-key}
+    depends_on:
+      - product-service
+      - order-service

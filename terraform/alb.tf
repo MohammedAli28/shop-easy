@@ -72,6 +72,18 @@ resource "aws_lb_target_group" "order" {
   }
 }
 
+resource "aws_lb_target_group" "observability" {
+  name        = "${var.project}-observe-tg"
+  port        = 3000
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    path = "/api/health"
+  }
+}
+
 # Routing rules
 resource "aws_lb_listener_rule" "products" {
   listener_arn = aws_lb_listener.http.arn
@@ -101,6 +113,22 @@ resource "aws_lb_listener_rule" "orders" {
   condition {
     path_pattern {
       values = ["/orders*", "/payments*", "/auth*"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "observability" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 5
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.observability.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/grafana*"]
     }
   }
 }

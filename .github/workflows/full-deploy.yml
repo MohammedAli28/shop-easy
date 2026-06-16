@@ -56,7 +56,8 @@ jobs:
           terraform init -backend-config="bucket=$TF_STATE_BUCKET"
           terraform apply -auto-approve \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="stripe_secret_key=${{ secrets.STRIPE_SECRET_KEY }}"
+            -var="stripe_secret_key=${{ secrets.STRIPE_SECRET_KEY }}" \
+            -var="pagerduty_integration_key=${{ secrets.PAGERDUTY_INTEGRATION_KEY }}"
           echo "ALB_DNS=$(terraform output -raw alb_dns)" >> $GITHUB_ENV
           echo "RDS_HOST=$(terraform output -raw rds_endpoint)" >> $GITHUB_ENV
 
@@ -74,6 +75,10 @@ jobs:
               -t $REGISTRY/$PROJECT/$svc:latest ./$svc
             docker push $REGISTRY/$PROJECT/$svc:latest
           done
+          echo "🔨 Building observability..."
+          docker build --platform linux/amd64 --provenance=false --no-cache \
+            -t $REGISTRY/$PROJECT/observability:latest ./observability-service
+          docker push $REGISTRY/$PROJECT/observability:latest
           echo "🔨 Building frontend..."
           docker build --platform linux/amd64 --provenance=false --no-cache \
             --build-arg REACT_APP_STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
@@ -111,6 +116,11 @@ jobs:
           aws ecs wait services-stable --cluster $PROJECT-cluster --services frontend
           echo "✅ frontend is healthy"
 
+          echo "4️⃣ Deploying observability..."
+          aws ecs update-service --cluster $PROJECT-cluster --service observability --force-new-deployment
+          aws ecs wait services-stable --cluster $PROJECT-cluster --services observability
+          echo "✅ observability is healthy"
+
       - name: ✅ Verify Deployment
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -119,6 +129,7 @@ jobs:
         run: |
           echo "### 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
           echo "**App URL:** http://$ALB_DNS" >> $GITHUB_STEP_SUMMARY
+          echo "**Grafana:** http://$ALB_DNS/grafana (admin / ShopEasy2026)" >> $GITHUB_STEP_SUMMARY
           echo "**Dashboard:** https://${{ env.AWS_REGION }}.console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#dashboards:name=$PROJECT-orders" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "> Services deployed. Allow 2-3 min for tasks to become healthy." >> $GITHUB_STEP_SUMMARY
@@ -152,7 +163,8 @@ jobs:
           terraform init -backend-config="bucket=$TF_STATE_BUCKET"
           terraform destroy -auto-approve \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="stripe_secret_key=${{ secrets.STRIPE_SECRET_KEY }}"
+            -var="stripe_secret_key=${{ secrets.STRIPE_SECRET_KEY }}" \
+            -var="pagerduty_integration_key=${{ secrets.PAGERDUTY_INTEGRATION_KEY }}"
 
       - name: 🪣 Delete State Bucket
         run: |

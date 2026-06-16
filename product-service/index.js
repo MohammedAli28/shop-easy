@@ -1,8 +1,25 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
+const { collectDefaultMetrics, register, Counter, Histogram } = require('prom-client');
 
 const app = express();
 app.use(express.json());
+
+// Prometheus metrics
+collectDefaultMetrics({ prefix: 'product_svc_' });
+const httpRequests = new Counter({ name: 'product_svc_http_requests_total', help: 'Total HTTP requests', labelNames: ['method', 'route', 'status'] });
+const httpDuration = new Histogram({ name: 'product_svc_http_duration_seconds', help: 'HTTP request duration', labelNames: ['method', 'route'], buckets: [0.01, 0.05, 0.1, 0.5, 1, 5] });
+
+app.use((req, res, next) => {
+  const end = httpDuration.startTimer({ method: req.method, route: req.path });
+  res.on('finish', () => { end(); httpRequests.inc({ method: req.method, route: req.path, status: res.statusCode }); });
+  next();
+});
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
 
 let pool;
 const connectDB = () => {

@@ -179,6 +179,55 @@ resource "aws_ecs_service" "frontend" {
   }
 }
 
+# ─── Observability Service (Grafana + Prometheus) ───
+resource "aws_ecs_task_definition" "observability" {
+  family                   = "${var.project}-observability"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn            = aws_iam_role.ecs_task.arn
+
+  container_definitions = jsonencode([{
+    name  = "observability"
+    image = "${aws_ecr_repository.observability.repository_url}:latest"
+    portMappings = [{ containerPort = 3000 }]
+    environment = [
+      { name = "PAGERDUTY_INTEGRATION_KEY", value = var.pagerduty_integration_key }
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/${var.project}"
+        "awslogs-region"        = var.region
+        "awslogs-stream-prefix" = "observability"
+      }
+    }
+  }])
+}
+
+resource "aws_ecs_service" "observability" {
+  name                   = "observability"
+  cluster                = aws_ecs_cluster.main.id
+  task_definition        = aws_ecs_task_definition.observability.arn
+  desired_count          = 1
+  launch_type            = "FARGATE"
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = aws_subnet.private[*].id
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.observability.arn
+    container_name   = "observability"
+    container_port   = 3000
+  }
+}
+
 # ─── ECR Repositories ───
 resource "aws_ecr_repository" "product" {
   name         = "${var.project}/product-service"
@@ -197,6 +246,11 @@ resource "aws_ecr_repository" "frontend" {
 
 resource "aws_ecr_repository" "db_init" {
   name         = "${var.project}/db-init"
+  force_delete = true
+}
+
+resource "aws_ecr_repository" "observability" {
+  name         = "${var.project}/observability"
   force_delete = true
 }
 

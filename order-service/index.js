@@ -1,12 +1,33 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const Stripe = require('stripe');
+const { collectDefaultMetrics, register, Counter, Histogram } = require('prom-client');
 
 const app = express();
 app.use(express.json());
 
 // Input sanitization
 const sanitize = (str) => typeof str === 'string' ? str.replace(/[<>"';]/g, '').trim() : str;
+
+// Prometheus metrics
+collectDefaultMetrics({ prefix: 'order_svc_' });
+const httpRequests = new Counter({ name: 'order_svc_http_requests_total', help: 'Total HTTP requests', labelNames: ['method', 'route', 'status'] });
+const httpDuration = new Histogram({ name: 'order_svc_http_duration_seconds', help: 'HTTP request duration', labelNames: ['method', 'route'], buckets: [0.01, 0.05, 0.1, 0.5, 1, 5] });
+const ordersCreated = new Counter({ name: 'orders_created_total', help: 'Total orders created' });
+const ordersPaid = new Counter({ name: 'orders_paid_total', help: 'Total orders paid' });
+const ordersFailed = new Counter({ name: 'orders_failed_total', help: 'Total orders failed' });
+const paymentAmount = new Histogram({ name: 'payment_amount_dollars', help: 'Payment amounts', buckets: [10, 50, 100, 250, 500, 1000] });
+
+app.use((req, res, next) => {
+  const end = httpDuration.startTimer({ method: req.method, route: req.path });
+  res.on('finish', () => { end(); httpRequests.inc({ method: req.method, route: req.path, status: res.statusCode }); });
+  next();
+});
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
 
 // Structured logging for CloudWatch Logs Insights
 const log = (event, data) => console.log(JSON.stringify({ timestamp: new Date().toISOString(), event, ...data }));
@@ -140,6 +161,7 @@ app.post('/orders', async (req, res) => {
       await conn.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id]);
     }
     await conn.commit();
+    ordersCreated.inc();
     log('ORDER_PENDING', { order_id: order.insertId, user_id, amount: total, customer: shipping_name, email: shipping_email, reason: 'Awaiting payment' });
     res.status(201).json({ id: order.insertId, total, status: 'pending' });
   } catch (e) {
@@ -188,6 +210,7 @@ app.post('/payments/failed', async (req, res) => {
       [order_id, order[0].total]
     );
     await pool.query('UPDATE orders SET status = "failed" WHERE id = ?', [order_id]);
+    ordersFailed.inc();
     log('ORDER_FAILED', { order_id, user_id: order[0].user_id, amount: parseFloat(order[0].total), customer: order[0].shipping_name, email: order[0].shipping_email, reason });
     res.json({ status: 'failed' });
   } catch (e) {
@@ -214,6 +237,8 @@ app.post('/payments/confirm', async (req, res) => {
       );
       await pool.query('UPDATE orders SET status = "paid" WHERE id = ?', [order_id]);
       await pool.query('DELETE FROM cart_items WHERE user_id = ?', [order[0].user_id]);
+      ordersPaid.inc();
+      paymentAmount.observe(parseFloat(order[0].total));
       log('ORDER_BOOKED', { order_id, user_id: order[0].user_id, amount: parseFloat(order[0].total), customer: order[0].shipping_name, email: order[0].shipping_email, reason: 'Payment successful' });
       res.json({ status: 'completed', amount: order[0].total });
     } else {
@@ -224,6 +249,7 @@ app.post('/payments/confirm', async (req, res) => {
       const failReason = paymentIntent.last_payment_error
         ? paymentIntent.last_payment_error.message
         : `Payment ${paymentIntent.status}`;
+      ordersFailed.inc();
       log('ORDER_FAILED', { order_id, user_id: order[0].user_id, amount: parseFloat(order[0].total), reason: failReason, stripe_status: paymentIntent.status });
       res.status(400).json({ status: 'failed', stripe_status: paymentIntent.status });
     }

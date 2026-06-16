@@ -10,6 +10,10 @@ variable "stripe_secret_key" {
   default   = "sk_test_placeholder"
   sensitive = true
 }
+variable "pagerduty_integration_key" {
+  default   = "test-key"
+  sensitive = true
+}
 
 data "aws_availability_zones" "available" { state = "available" }
 
