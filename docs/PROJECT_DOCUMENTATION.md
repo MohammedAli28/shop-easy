@@ -317,6 +317,8 @@ User clicks product card → Modal opens (client-side state)
 
 ### Flow 2: Add to Cart
 
+![Cart](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/cart.png)
+
 ```
 User clicks "Add" → POST /cart {user_id, product_id, quantity: 1}
                         ↓
@@ -330,6 +332,8 @@ Notification: "✓ Added to cart!"
 ```
 
 ### Flow 3: Checkout & Payment (detailed)
+
+![Checkout](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/Checkout.png)
 
 ```
 ┌─── FRONTEND ───────────────────────────────────────────────────┐
@@ -390,6 +394,10 @@ Notification: "✓ Added to cart!"
 ```
 
 ### Flow 4: View Orders
+
+![Order Status](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/order_status.png)
+
+![Receipt](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/receipt.png)
 
 ```
 User clicks "Orders" → GET /orders/1 → Display list with:
@@ -631,6 +639,9 @@ RDS SG:
 - Order Status Distribution (pie chart)
 
 **Infrastructure & ECS:**
+
+![Infrastructure & ECS Dashboard](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/Infrastructure_ECS.png)
+
 - Service UP/DOWN status (per target)
 - HTTP Request Rate (requests/second)
 - P95 Response Time (95th percentile latency)
