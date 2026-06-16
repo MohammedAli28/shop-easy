@@ -127,12 +127,32 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
         run: |
+          echo "⏳ Waiting 30s for ALB targets to register..."
+          sleep 30
+          echo "🔍 Verifying endpoints..."
+          for i in 1 2 3 4 5; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/products)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ /products → 200 OK"
+              break
+            fi
+            echo "  Attempt $i: got $HTTP_CODE, retrying in 15s..."
+            sleep 15
+          done
+          ORDERS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/orders/stats/summary)
+          echo "✅ /orders/stats/summary → $ORDERS_CODE"
+          GRAFANA_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/grafana/login)
+          echo "✅ /grafana/login → $GRAFANA_CODE"
           echo "### 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
           echo "**App URL:** http://$ALB_DNS" >> $GITHUB_STEP_SUMMARY
           echo "**Grafana:** http://$ALB_DNS/grafana (admin / ShopEasy2026)" >> $GITHUB_STEP_SUMMARY
-          echo "**Dashboard:** https://${{ env.AWS_REGION }}.console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#dashboards:name=$PROJECT-orders" >> $GITHUB_STEP_SUMMARY
+          echo "**CloudWatch:** https://${{ env.AWS_REGION }}.console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#dashboards:name=$PROJECT-orders" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> Services deployed. Allow 2-3 min for tasks to become healthy." >> $GITHUB_STEP_SUMMARY
+          echo "| Endpoint | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| /products | $HTTP_CODE |" >> $GITHUB_STEP_SUMMARY
+          echo "| /orders/stats/summary | $ORDERS_CODE |" >> $GITHUB_STEP_SUMMARY
+          echo "| /grafana/login | $GRAFANA_CODE |" >> $GITHUB_STEP_SUMMARY
 
   destroy:
     name: 💣 Destroy Everything
