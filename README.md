@@ -57,7 +57,8 @@
 
 ### Observability (Grafana + Prometheus + PagerDuty)
 
-![Grafana Dashboard]()
+<img width="1668" height="957" alt="grphana" src="https://github.com/user-attachments/assets/14c6d829-7400-49d2-a82b-ce4b8511a1b1" />
+
 
 - **Business Dashboard** — Booking Amount, Booking Count (Booked/Pending/Failed), pie chart, revenue over time
 - **Infrastructure Dashboard** — Service UP/DOWN, CPU, Memory, HTTP request rates, P95 response time, error rates
