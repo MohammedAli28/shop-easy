@@ -6,13 +6,15 @@
 
 ## Live Demo
 
-![Shop Easy Live Demo]()
+![Shop Easy Live Demo](<img width="1467" height="1482" alt="demo" src="https://github.com/user-attachments/assets/157d7e6c-0dff-43c3-b79b-8fe4cdd67056" />
+)
 
 ---
 
 ## Architecture
 
-![Shop Easy Architecture]()
+![Shop Easy Architecture](<img width="1536" height="1024" alt="flow" src="https://github.com/user-attachments/assets/42c01d69-cf46-45b7-a503-fd8d4f43c094" />
+)
 
 ---
 
@@ -50,7 +52,8 @@
 
 ### Admin Panel
 
-![Admin Panel]()
+![Admin Panel](<img width="1680" height="1530" alt="admin_panel" src="https://github.com/user-attachments/assets/6118a47d-9439-4350-a4f0-e753a3e12b29" />
+)
 
 ### Observability (Grafana + Prometheus + PagerDuty)
 
