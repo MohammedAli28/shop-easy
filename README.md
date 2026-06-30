@@ -6,13 +6,13 @@
 
 ## Live Demo
 
-![Shop Easy Live Demo](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/demo.jpg)
+![Shop Easy Live Demo]()
 
 ---
 
 ## Architecture
 
-![Shop Easy Architecture](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/flow.png)
+![Shop Easy Architecture]()
 
 ---
 
@@ -50,11 +50,11 @@
 
 ### Admin Panel
 
-![Admin Panel](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/admin_panel.jpg)
+![Admin Panel]()
 
 ### Observability (Grafana + Prometheus + PagerDuty)
 
-![Grafana Dashboard](https://github.com/aniljadhavmca/shop-easy/blob/feature/observability-stack/docs/grphana.jpg)
+![Grafana Dashboard]()
 
 - **Business Dashboard** — Booking Amount, Booking Count (Booked/Pending/Failed), pie chart, revenue over time
 - **Infrastructure Dashboard** — Service UP/DOWN, CPU, Memory, HTTP request rates, P95 response time, error rates
@@ -342,4 +342,4 @@ Accessible at `http://<ALB_DNS>/grafana/` (admin / ShopEasy2026)
 
 ## Credits
 
-© 2026 ShopEasy. Proudly built by **Anil Jadhav**
+© 2026 ShopEasy. Proudly built by **Ali**
